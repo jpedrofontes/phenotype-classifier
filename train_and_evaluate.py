@@ -1,3 +1,8 @@
+import argparse
+import logging
+import sys
+
+import numpy as np
 import tensorflow as tf
 
 from load_dataset.custom_preprocessed448 import CustomPreProcessed448
@@ -5,43 +10,96 @@ from models.custom_model import CustomModel
 
 # This function keeps the initial learning rate for the first ten epochs
 # # and decreases it exponentially after that.
+
+
 def scheduler(epoch, lr):
     if epoch < 10:
         return lr
     else:
         return lr * tf.math.exp(-0.1)
 
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser.add_argument('--arch', help='model architecture')
+    parser.add_argument('--sizes', type=int, nargs='+',
+                        help='sizes of the internal layers (only available if model type not specified)')
+    parser.add_argument('--verbose', help='verbose mode', action='store_true')
+    args = parser.parse_args()
+
     num_classes = 4
     img_size = (224, 224)
     input_shape = (224, 224, 3)
+    verbose = 1 if args.verbose else 2
+    batch_size = 64
+    epochs = 500
+
+    if args.arch is None:
+        if args.sizes is None:
+            logging.fatal("no internal layers are specified\n")
+            sys.exit()
+        model = CustomModel(args.sizes, input_shape, num_classes).make_model()
+        model_name = "CustomModel_" + '_'.join(map(str, args.sizes))
+    elif args.arch == "resnet50":
+        base_model = tf.keras.applications.ResNet50V2(include_top=False, input_shape=input_shape)
+        x = base_model.output
+        x = tf.keras.layers.GlobalAveragePooling2D()(x)
+        x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
+        model = tf.keras.Model(inputs=base_model.input, outputs=x)
+        model_name = "ResNet50V2"
+    elif args.arch == "resnet101":
+        base_model = tf.keras.applications.ResNet101V2(include_top=False, input_shape=input_shape)
+        x = base_model.output
+        x = tf.keras.layers.GlobalAveragePooling2D()(x)
+        x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
+        model = tf.keras.Model(inputs=base_model.input, outputs=x)
+        model_name = "ResNet101V2"
+    elif args.arch == "resnet152":
+        base_model = tf.keras.applications.ResNet152V2(include_top=False, input_shape=input_shape)
+        x = base_model.output
+        x = tf.keras.layers.GlobalAveragePooling2D()(x)
+        x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
+        model = tf.keras.Model(inputs=base_model.input, outputs=x)
+        model_name = "ResNet152V2"
+    elif args.arch == "inception":
+        base_model = tf.keras.applications.InceptionV3(include_top=False, input_shape=input_shape)
+        x = base_model.output
+        x = tf.keras.layers.GlobalAveragePooling2D()(x)
+        x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
+        model = tf.keras.Model(inputs=base_model.input, outputs=x)
+        model_name = "InceptionV3"
+    elif args.arch == "mobilenet":
+        base_model = tf.keras.applications.MobileNetV2(include_top=False, input_shape=input_shape)
+        x = base_model.output
+        x = tf.keras.layers.GlobalAveragePooling2D()(x)
+        x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
+        model = tf.keras.Model(inputs=base_model.input, outputs=x)
+        model_name = "MobileNetV2"
 
     x_train, x_test, y_train, y_test = CustomPreProcessed448(
-        "/data/mguevaral/crop_bbox", img_size).read_dataset()
+        "/data/mguevaral/crop_bbox", img_size, verbose=verbose).read_dataset()
     y_train = tf.keras.utils.to_categorical(y_train, num_classes)
     y_test = tf.keras.utils.to_categorical(y_test, num_classes)
 
-    model = CustomModel([128, 256, 512], input_shape, num_classes).make_model()
-    batch_size = 128
-    epochs = 500
-    
+    x_train, x_test = np.array(x_train), np.array(x_test)
+
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(patience=2),
+        tf.keras.callbacks.EarlyStopping(patience=10),
         tf.keras.callbacks.ModelCheckpoint(
-            filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/CustomModel_128_256_512/model.{epoch: 02d}-{val_loss: .2f}.h5"),
+            filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/model.h5", save_best_only=True),
         tf.keras.callbacks.TensorBoard(
-            log_dir="/home/mguevaral/jpedro/phenotype-classifier/logs/CustomModel_128_256_512"),
+            log_dir="/home/mguevaral/jpedro/phenotype-classifier/logs/" + model_name),
         tf.keras.callbacks.LearningRateScheduler(scheduler),
         tf.keras.callbacks.CSVLogger(
-            "/home/mguevaral/jpedro/phenotype-classifier/logs/CustomModel_128_256_512/log.csv", separator=",", append=False),
+            "/home/mguevaral/jpedro/phenotype-classifier/logs/" + model_name + "/log.csv", separator=",", append=False),
     ]
 
-    model.compile(loss="categorical_crossentropy",
-                  optimizer="adam", metrics=["accuracy"], callbacks=callbacks)
+    model.compile(loss="categorical_crossentropy", optimizer=tf.keras.optimizers.Adam(
+        learning_rate=1e-2), metrics=["accuracy"], )
 
     model.fit(x_train, y_train, batch_size=batch_size,
-              epochs=epochs, validation_split=0.1)
-    
-    score = model.evaluate(x_test, y_test, verbose=0)
+              epochs=epochs, validation_split=0.1, verbose=verbose, callbacks=callbacks)
+
+    score = model.evaluate(x_test, y_test, verbose=verbose)
     print("Test loss:", score[0])
     print("Test accuracy:", score[1])
