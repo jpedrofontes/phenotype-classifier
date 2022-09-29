@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
     if args.arch is None:
         if args.sizes is None:
-            logging.fatal("no internal layers are specified\n")
+            logging.fatal("no internal layers are specified")
             sys.exit()
         model = CustomModel(args.sizes, input_shape, num_classes).make_model()
         model_name = "CustomModel_" + '_'.join(map(str, args.sizes))
@@ -75,7 +75,10 @@ if __name__ == "__main__":
         x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
         model = tf.keras.Model(inputs=base_model.input, outputs=x)
         model_name = "MobileNetV2"
-
+    else:
+        logging.fatal("wrong architecture name")
+        sys.exit()
+         
     x_train, x_test, y_train, y_test = CustomPreProcessed448(
         "/data/mguevaral/crop_bbox", img_size, verbose=verbose).read_dataset()
     y_train = tf.keras.utils.to_categorical(y_train, num_classes)
@@ -95,11 +98,12 @@ if __name__ == "__main__":
     ]
 
     model.compile(loss="categorical_crossentropy", optimizer=tf.keras.optimizers.Adam(
-        learning_rate=1e-2), metrics=["accuracy"], )
+        learning_rate=0.001), metrics=["accuracy"], )
 
     model.fit(x_train, y_train, batch_size=batch_size,
               epochs=epochs, validation_split=0.1, verbose=verbose, callbacks=callbacks)
 
     score = model.evaluate(x_test, y_test, verbose=verbose)
+    print("Model:", model_name)    
     print("Test loss:", score[0])
     print("Test accuracy:", score[1])
