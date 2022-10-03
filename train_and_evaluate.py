@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import sys
 
 import numpy as np
@@ -13,10 +14,7 @@ from models.custom_model import CustomModel
 
 
 def scheduler(epoch, lr):
-    if epoch < 10:
-        return lr
-    else:
-        return lr * tf.math.exp(-0.1)
+    return lr * tf.math.exp(-0.1)
 
 
 if __name__ == "__main__":
@@ -39,42 +37,44 @@ if __name__ == "__main__":
             logging.fatal("no internal layers are specified")
             sys.exit()
         model = CustomModel(args.sizes, input_shape, num_classes).make_model()
-        model_name = "CustomModel_" + '_'.join(map(str, args.sizes))
+        model_name = "CustomModel_" + \
+            '_'.join(map(str, args.sizes)) + "." + \
+            os.environ.get("SLURM_JOB_ID")
     elif args.arch == "resnet50":
         base_model = tf.keras.applications.ResNet50V2(include_top=False, input_shape=input_shape)
         x = base_model.output
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
         model = tf.keras.Model(inputs=base_model.input, outputs=x)
-        model_name = "ResNet50V2"
+        model_name = "ResNet50V2" + "." + os.environ.get("SLURM_JOB_ID")
     elif args.arch == "resnet101":
         base_model = tf.keras.applications.ResNet101V2(include_top=False, input_shape=input_shape)
         x = base_model.output
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
         model = tf.keras.Model(inputs=base_model.input, outputs=x)
-        model_name = "ResNet101V2"
+        model_name = "ResNet101V2" + "." + os.environ.get("SLURM_JOB_ID")
     elif args.arch == "resnet152":
         base_model = tf.keras.applications.ResNet152V2(include_top=False, input_shape=input_shape)
         x = base_model.output
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
         model = tf.keras.Model(inputs=base_model.input, outputs=x)
-        model_name = "ResNet152V2"
+        model_name = "ResNet152V2" + "." + os.environ.get("SLURM_JOB_ID")
     elif args.arch == "inception":
         base_model = tf.keras.applications.InceptionV3(include_top=False, input_shape=input_shape)
         x = base_model.output
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
         model = tf.keras.Model(inputs=base_model.input, outputs=x)
-        model_name = "InceptionV3"
+        model_name = "InceptionV3" + "." + os.environ.get("SLURM_JOB_ID")
     elif args.arch == "mobilenet":
         base_model = tf.keras.applications.MobileNetV2(include_top=False, input_shape=input_shape)
         x = base_model.output
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
         model = tf.keras.Model(inputs=base_model.input, outputs=x)
-        model_name = "MobileNetV2"
+        model_name = "MobileNetV2" + "." + os.environ.get("SLURM_JOB_ID")
     else:
         logging.fatal("wrong architecture name")
         sys.exit()
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     x_train, x_test = np.array(x_train), np.array(x_test)
 
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(patience=10),
+        tf.keras.callbacks.EarlyStopping(patience=25),
         tf.keras.callbacks.ModelCheckpoint(
             filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/model.h5", save_best_only=True),
         tf.keras.callbacks.TensorBoard(
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     ]
 
     model.compile(loss="categorical_crossentropy", optimizer=tf.keras.optimizers.Adam(
-        learning_rate=0.001), metrics=["accuracy"], )
+        learning_rate=0.1), metrics=["accuracy"], )
 
     model.fit(x_train, y_train, batch_size=batch_size,
               epochs=epochs, validation_split=0.1, verbose=verbose, callbacks=callbacks)
