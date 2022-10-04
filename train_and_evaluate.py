@@ -14,6 +14,8 @@ from models.custom_model import CustomModel
 
 
 def scheduler(epoch, lr):
+    if epoch < 10:
+        return lr
     return lr * tf.math.exp(-0.1)
 
 
@@ -41,35 +43,40 @@ if __name__ == "__main__":
             '_'.join(map(str, args.sizes)) + "." + \
             os.environ.get("SLURM_JOB_ID")
     elif args.arch == "resnet50":
-        base_model = tf.keras.applications.ResNet50V2(include_top=False, input_shape=input_shape)
+        base_model = tf.keras.applications.ResNet50V2(
+            include_top=False, input_shape=input_shape)
         x = base_model.output
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
         model = tf.keras.Model(inputs=base_model.input, outputs=x)
         model_name = "ResNet50V2" + "." + os.environ.get("SLURM_JOB_ID")
     elif args.arch == "resnet101":
-        base_model = tf.keras.applications.ResNet101V2(include_top=False, input_shape=input_shape)
+        base_model = tf.keras.applications.ResNet101V2(
+            include_top=False, input_shape=input_shape)
         x = base_model.output
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
         model = tf.keras.Model(inputs=base_model.input, outputs=x)
         model_name = "ResNet101V2" + "." + os.environ.get("SLURM_JOB_ID")
     elif args.arch == "resnet152":
-        base_model = tf.keras.applications.ResNet152V2(include_top=False, input_shape=input_shape)
+        base_model = tf.keras.applications.ResNet152V2(
+            include_top=False, input_shape=input_shape)
         x = base_model.output
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
         model = tf.keras.Model(inputs=base_model.input, outputs=x)
         model_name = "ResNet152V2" + "." + os.environ.get("SLURM_JOB_ID")
     elif args.arch == "inception":
-        base_model = tf.keras.applications.InceptionV3(include_top=False, input_shape=input_shape)
+        base_model = tf.keras.applications.InceptionV3(
+            include_top=False, input_shape=input_shape)
         x = base_model.output
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
         model = tf.keras.Model(inputs=base_model.input, outputs=x)
         model_name = "InceptionV3" + "." + os.environ.get("SLURM_JOB_ID")
     elif args.arch == "mobilenet":
-        base_model = tf.keras.applications.MobileNetV2(include_top=False, input_shape=input_shape)
+        base_model = tf.keras.applications.MobileNetV2(
+            include_top=False, input_shape=input_shape)
         x = base_model.output
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
@@ -78,7 +85,7 @@ if __name__ == "__main__":
     else:
         logging.fatal("wrong architecture name")
         sys.exit()
-         
+
     x_train, x_test, y_train, y_test = CustomPreProcessed448(
         "/data/mguevaral/crop_bbox", img_size, verbose=verbose).read_dataset()
     y_train = tf.keras.utils.to_categorical(y_train, num_classes)
@@ -89,7 +96,7 @@ if __name__ == "__main__":
     callbacks = [
         tf.keras.callbacks.EarlyStopping(patience=25),
         tf.keras.callbacks.ModelCheckpoint(
-            filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/model.h5", save_best_only=True),
+            filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/weights.h5", save_best_only=True),
         tf.keras.callbacks.TensorBoard(
             log_dir="/home/mguevaral/jpedro/phenotype-classifier/logs/" + model_name),
         tf.keras.callbacks.LearningRateScheduler(scheduler),
@@ -103,7 +110,11 @@ if __name__ == "__main__":
     model.fit(x_train, y_train, batch_size=batch_size,
               epochs=epochs, validation_split=0.1, verbose=verbose, callbacks=callbacks)
 
+    model.load_weights(
+        "/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/weights.h5")
     score = model.evaluate(x_test, y_test, verbose=verbose)
-    print("Model:", model_name)    
+    print("Model:", model_name)
     print("Test loss:", score[0])
     print("Test accuracy:", score[1])
+    model.save(
+        "/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name)
