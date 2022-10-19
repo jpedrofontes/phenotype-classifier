@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH --job-name=JP_PHENOTYPE_CLASSIFIER_CUSTOM
+#SBATCH --job-name=phenotype_classifier
 #SBATCH --time=1000:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -9,6 +9,7 @@
 #SBATCH --gres=gpu:2
 #SBATCH --mem=122000
 #SBATCH --cpus-per-task=32
+#SBATCH -o /home/mguevaral/jpedro/phenotype-classifier/logs/%x.%j.out 
 
 source /home/mguevaral/jpedro/phenotype-classifier/venv/bin/activate
 module load CUDA
