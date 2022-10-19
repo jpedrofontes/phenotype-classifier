@@ -9,14 +9,9 @@ import tensorflow as tf
 from load_dataset.custom_preprocessed448 import CustomPreProcessed448
 from models.custom_model import CustomModel
 
-# This function keeps the initial learning rate for the first ten epochs
-# # and decreases it exponentially after that.
-
 
 def scheduler(epoch, lr):
-    if epoch < 10:
-        return lr
-    return lr * tf.math.exp(-0.1)
+    return lr * 1 / (1 + decay * epoch)
 
 
 if __name__ == "__main__":
@@ -33,6 +28,8 @@ if __name__ == "__main__":
     verbose = 1 if args.verbose else 2
     batch_size = 64
     epochs = 500
+    lr = 0.01
+    decay = lr / epochs
 
     if args.arch is None:
         if args.sizes is None:
@@ -92,9 +89,9 @@ if __name__ == "__main__":
     y_test = tf.keras.utils.to_categorical(y_test, num_classes)
 
     x_train, x_test = np.array(x_train), np.array(x_test)
-
+    
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(patience=25),
+        tf.keras.callbacks.EarlyStopping(patience=50),
         tf.keras.callbacks.ModelCheckpoint(
             filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/weights.h5", save_best_only=True),
         tf.keras.callbacks.TensorBoard(
@@ -105,7 +102,7 @@ if __name__ == "__main__":
     ]
 
     model.compile(loss="categorical_crossentropy", optimizer=tf.keras.optimizers.Adam(
-        learning_rate=0.1), metrics=["accuracy"], )
+        learning_rate=lr), metrics=["accuracy"], )
 
     model.fit(x_train, y_train, batch_size=batch_size,
               epochs=epochs, validation_split=0.1, verbose=verbose, callbacks=callbacks)
