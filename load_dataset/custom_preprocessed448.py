@@ -32,6 +32,9 @@ class CustomPreProcessed448:
             img = img.resize(self._crop_size)
             img = np.array(img)
 
+            # Preprocess the image
+            img = img/255
+
             # Get the case number of the image
             match = re.search("Breast_MRI_[0-9]+", file)
             case = file[match.start():match.end()]
@@ -57,24 +60,25 @@ class CustomPreProcessed448:
         print("Split training and test cases by case number...")
         train_size = int(0.9 * len(cases))
         train_cases, test_cases = [], []
-        
+
         for i, case in enumerate(cases.values()):
             if i < train_size:
                 train_cases.append(case)
             else:
                 test_cases.append(case)
-        
+
         for case in train_cases:
             for img in case["images"]:
                 x_train.append(img)
                 y_train.append(case["phenotype"])
-                
+
         for case in test_cases:
             for img in case["images"]:
                 x_test.append(img)
                 y_test.append(case["phenotype"])
-                
+
         return x_train, x_test, y_train, y_test
+
 
 if __name__ == "__main__":
     reader = CustomPreProcessed448(sys.argv[1], sys.argv[2])

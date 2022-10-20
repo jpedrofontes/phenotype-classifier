@@ -133,3 +133,5 @@ logs/
 
 # Keras checkpoints
 checkpoints/
+
+.vscode
