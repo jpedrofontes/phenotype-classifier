@@ -11,6 +11,7 @@
 #SBATCH --cpus-per-task=32
 #SBATCH -o /home/mguevaral/jpedro/phenotype-classifier/logs/%x.%j.out 
 
+export TF_GPU_ALLOCATOR=cuda_malloc_async
 source /home/mguevaral/jpedro/phenotype-classifier/venv/bin/activate
 module load CUDA
 module load cuDNN

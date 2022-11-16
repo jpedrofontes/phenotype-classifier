@@ -83,13 +83,10 @@ if __name__ == "__main__":
         logging.fatal("wrong architecture name")
         sys.exit()
 
-    x_train, x_test, y_train, y_test = CustomPreProcessed448(
-        "/data/mguevaral/crop_bbox", img_size, verbose=verbose).read_dataset()
-    y_train = tf.keras.utils.to_categorical(y_train, num_classes)
-    y_test = tf.keras.utils.to_categorical(y_test, num_classes)
+    dataset = CustomPreProcessed448("/data/mguevaral/crop_bbox", img_size, num_classes=num_classes)
+    train_generator = dataset.get_dataset_generator(batch_size=batch_size)
+    test_generator = dataset.get_dataset_generator(training=False)
 
-    x_train, x_test = np.array(x_train), np.array(x_test)
-    
     callbacks = [
         tf.keras.callbacks.EarlyStopping(patience=50),
         tf.keras.callbacks.ModelCheckpoint(
@@ -104,12 +101,16 @@ if __name__ == "__main__":
     model.compile(loss="categorical_crossentropy", optimizer=tf.keras.optimizers.Adam(
         learning_rate=lr), metrics=["accuracy"], )
 
-    model.fit(x_train, y_train, batch_size=batch_size,
-              epochs=epochs, validation_split=0.1, verbose=verbose, callbacks=callbacks)
+    model.fit(train_generator, 
+              batch_size=batch_size,
+              epochs=epochs, 
+              validation_data=test_generator,
+              verbose=verbose, 
+              callbacks=callbacks)
 
     model.load_weights(
         "/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/weights.h5")
-    score = model.evaluate(x_test, y_test, verbose=verbose)
+    score = model.evaluate(test_generator, verbose=verbose)
     print("Model:", model_name)
     print("Test loss:", score[0])
     print("Test accuracy:", score[1])

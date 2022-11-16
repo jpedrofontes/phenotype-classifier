@@ -1,22 +1,23 @@
 import glob
+import logging
 import os
 import re
 import sys
 
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from PIL import Image
-from tqdm import tqdm
 
+from generator import DataGenerator
 
 class CustomPreProcessed448:
-    def __init__(self, path, crop_size=(448, 448), verbose=1):
+    def __init__(self, path, crop_size=(448, 448), num_classes=1):
         self._path = path
         self._crop_size = crop_size
-        self._verbose = verbose
-
-    def read_dataset(self):
+        self._num_classes = num_classes
+        
         cases = dict()
         x_train, x_test, y_train, y_test = [], [], [], []
 
@@ -25,7 +26,7 @@ class CustomPreProcessed448:
 
         # Iterate over all the images
         os.chdir(self._path)
-        print("Reading dataset...")
+        logging.info("Reading dataset...")
         for file in glob.glob("*.jpg"):
             # Read the image and resize it
             img = Image.open(os.path.join(self._path, file)).convert('RGB')
@@ -57,7 +58,7 @@ class CustomPreProcessed448:
                     cases[case]["phenotype"] = phenotype
 
         # Separate in train and test by case number
-        print("Split training and test cases by case number...")
+        logging.info("Split training and test cases by case number...")
         train_size = int(0.9 * len(cases))
         train_cases, test_cases = [], []
 
@@ -77,9 +78,15 @@ class CustomPreProcessed448:
                 x_test.append(img)
                 y_test.append(case["phenotype"])
 
-        return x_train, x_test, y_train, y_test
+        self.x_train = np.array(x_train)
+        self.x_test = np.array(x_test)
+        self.y_train = np.array(y_train)
+        self.y_test = np.array(y_test)
+        
+        logging.info("Dataset ready!")
 
-
-if __name__ == "__main__":
-    reader = CustomPreProcessed448(sys.argv[1], sys.argv[2])
-    reader.read_dataset()
+    def get_dataset_generator(self, training=True, batch_size=32):
+        if training:
+            return DataGenerator(self.x_train, self.y_train, batch_size=batch_size, dim=self._crop_size, n_classes=self._num_classes, shuffle=True)
+        else:
+            return DataGenerator(self.x_test, self.y_test, batch_size=batch_size, dim=self._crop_size, n_classes=self._num_classes, shuffle=False)
