@@ -10,10 +10,6 @@ from load_dataset.custom_preprocessed448 import CustomPreProcessed448
 from models.custom_model import CustomModel
 
 
-def scheduler(epoch, lr):
-    return lr * 1 / (1 + decay * epoch)
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--arch', help='model architecture')
@@ -28,7 +24,7 @@ if __name__ == "__main__":
     verbose = 1 if args.verbose else 2
     batch_size = 64
     epochs = 500
-    lr = 0.01
+    lr = 1e-6
     decay = lr / epochs
 
     if args.arch is None:
@@ -83,7 +79,8 @@ if __name__ == "__main__":
         logging.fatal("wrong architecture name")
         sys.exit()
 
-    dataset = CustomPreProcessed448("/data/mguevaral/crop_bbox", img_size, num_classes=num_classes)
+    dataset = CustomPreProcessed448(
+        "/data/mguevaral/crop_bbox", img_size, num_classes=num_classes)
     train_generator = dataset.get_dataset_generator(batch_size=batch_size)
     test_generator = dataset.get_dataset_generator(training=False)
 
@@ -93,19 +90,23 @@ if __name__ == "__main__":
             filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/weights.h5", save_best_only=True),
         tf.keras.callbacks.TensorBoard(
             log_dir="/home/mguevaral/jpedro/phenotype-classifier/logs/" + model_name),
-        tf.keras.callbacks.LearningRateScheduler(scheduler),
         tf.keras.callbacks.CSVLogger(
             "/home/mguevaral/jpedro/phenotype-classifier/logs/" + model_name + "/log.csv", separator=",", append=False),
     ]
 
-    model.compile(loss="categorical_crossentropy", optimizer=tf.keras.optimizers.Adam(
-        learning_rate=lr), metrics=["accuracy"], )
+    lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate=1e-2,
+        decay_steps=10000,
+        decay_rate=0.9)
+    optimizer = tf.keras.optimizers.SGD(learning_rate=lr_schedule)
+    model.compile(loss="categorical_crossentropy",
+                  optimizer=optimizer, metrics=["accuracy"], )
 
-    model.fit(train_generator, 
+    model.fit(train_generator,
               batch_size=batch_size,
-              epochs=epochs, 
+              epochs=epochs,
               validation_data=test_generator,
-              verbose=verbose, 
+              verbose=verbose,
               callbacks=callbacks)
 
     model.load_weights(

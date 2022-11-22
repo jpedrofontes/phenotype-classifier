@@ -2,12 +2,9 @@ import glob
 import logging
 import os
 import re
-import sys
 
 import numpy as np
 import pandas as pd
-import tensorflow as tf
-from sklearn.model_selection import train_test_split
 from PIL import Image
 
 from generator import DataGenerator
