@@ -2,7 +2,9 @@ import glob
 import logging
 import os
 import re
+import sys
 
+import cv2
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -32,6 +34,9 @@ class CustomPreProcessed448:
 
             # Preprocess the image
             img = img/255
+            
+            cv2.imshow("Image", img)
+            cv2.waitKey(1)
 
             # Get the case number of the image
             match = re.search("Breast_MRI_[0-9]+", file)
@@ -40,19 +45,19 @@ class CustomPreProcessed448:
                 continue
 
             # Match the case number with the phenotype class
-            phenotype = classes_csv.loc[classes_csv["patient_id"]
-                                        == case]["mol_subtype"]
+            phenotype = classes_csv.loc[classes_csv["patient_id"]== case]["mol_subtype"]
             if phenotype is None:
                 continue
             else:
                 try:
                     cases[case]["images"].append(img)
-                    cases[case]["phenotype"] = phenotype
+                    cases[case]["phenotype"] = phenotype.tolist()[0]
                 except:
                     cases[case] = dict()
+                    cases[case]["number"] = case
                     cases[case]["images"] = []
                     cases[case]["images"].append(img)
-                    cases[case]["phenotype"] = phenotype
+                    cases[case]["phenotype"] = phenotype.tolist()[0]
 
         # Separate in train and test by case number
         logging.info("Split training and test cases by case number...")
@@ -66,11 +71,13 @@ class CustomPreProcessed448:
                 test_cases.append(case)
 
         for case in train_cases:
+            print(case["number"], len(case['images']), case["phenotype"])
             for img in case["images"]:
                 x_train.append(img)
                 y_train.append(case["phenotype"])
 
         for case in test_cases:
+            print(case["number"], len(case['images']), case["phenotype"])
             for img in case["images"]:
                 x_test.append(img)
                 y_test.append(case["phenotype"])
@@ -87,3 +94,9 @@ class CustomPreProcessed448:
             return DataGenerator(self.x_train, self.y_train, batch_size=batch_size, dim=self._crop_size, n_classes=self._num_classes, shuffle=True)
         else:
             return DataGenerator(self.x_test, self.y_test, batch_size=batch_size, dim=self._crop_size, n_classes=self._num_classes, shuffle=False)
+        
+if __name__ == "__main__":
+    img_size = (224, 224)
+    num_classes = 4
+    dataset = CustomPreProcessed448(
+        sys.argv[1], img_size, num_classes=num_classes)
