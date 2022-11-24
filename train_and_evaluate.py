@@ -3,12 +3,11 @@ import logging
 import os
 import sys
 
-import numpy as np
 import tensorflow as tf
+from sklearn.metrics import confusion_matrix
 
 from load_dataset.custom_preprocessed448 import CustomPreProcessed448
 from models.custom_model import CustomModel
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
@@ -22,12 +21,50 @@ if __name__ == "__main__":
     img_size = (224, 224)
     input_shape = (224, 224, 3)
     verbose = 1 if args.verbose else 2
-    batch_size = 64
+    batch_size = 128
     epochs = 500
-    lr = 1e-6
-    decay = lr / epochs
+    lr = 1e-2
+    
+    img_augmentation = tf.keras.Sequential(
+        [
+            tf.keras.layers.RandomRotation(factor=0.15),
+            tf.keras.layers.RandomTranslation(height_factor=0.1, width_factor=0.1),
+            tf.keras.layers.RandomFlip(),
+            tf.keras.layers.RandomContrast(factor=0.1),
+        ],
+        name="img_augmentation",
+    )
 
-    if args.arch is None:
+    if args.arch == "resnet152":
+        inputs = tf.keras.layers.Input(shape=input_shape)
+        x = img_augmentation(inputs)
+        base_model = tf.keras.applications.ResNet152V2(
+            include_top=False, weights="imagenet", classes=num_classes)(x)
+        x = tf.keras.layers.GlobalAveragePooling2D(name="avg_pool")(base_model)
+        x = tf.keras.layers.BatchNormalization()(x)
+        top_dropout_rate = 0.2
+        x = tf.keras.layers.Dropout(top_dropout_rate, name="top_dropout")(x)
+        outputs = tf.keras.layers.Dense(
+            num_classes, activation="softmax", name="pred")(x)
+        model = tf.keras.Model(inputs=inputs,
+                               outputs=x, name="ResNet152V2")
+        model_name = "ResNet152V2" + "." + os.environ.get("SLURM_JOB_ID")
+        
+    elif args.arch == "efficientnet":
+        inputs = tf.keras.layers.Input(shape=input_shape)
+        x = img_augmentation(inputs)
+        base_model = tf.keras.applications.EfficientNetB0(
+            include_top=False, weights="imagenet", classes=num_classes)(x)
+        x = tf.keras.layers.GlobalAveragePooling2D(name="avg_pool")(base_model)
+        x = tf.keras.layers.BatchNormalization()(x)
+        top_dropout_rate = 0.2
+        x = tf.keras.layers.Dropout(top_dropout_rate, name="top_dropout")(x)
+        outputs = tf.keras.layers.Dense(num_classes, activation="softmax", name="pred")(x)
+        model = tf.keras.Model(inputs=inputs,
+                               outputs=x, name="EfficientNet")
+        model_name = "EfficientNet" + "." + os.environ.get("SLURM_JOB_ID")
+        
+    else:
         if args.sizes is None:
             logging.fatal("no internal layers are specified")
             sys.exit()
@@ -35,49 +72,6 @@ if __name__ == "__main__":
         model_name = "CustomModel_" + \
             '_'.join(map(str, args.sizes)) + "." + \
             os.environ.get("SLURM_JOB_ID")
-    elif args.arch == "resnet50":
-        base_model = tf.keras.applications.ResNet50V2(
-            include_top=False, input_shape=input_shape)
-        x = base_model.output
-        x = tf.keras.layers.GlobalAveragePooling2D()(x)
-        x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
-        model = tf.keras.Model(inputs=base_model.input, outputs=x)
-        model_name = "ResNet50V2" + "." + os.environ.get("SLURM_JOB_ID")
-    elif args.arch == "resnet101":
-        base_model = tf.keras.applications.ResNet101V2(
-            include_top=False, input_shape=input_shape)
-        x = base_model.output
-        x = tf.keras.layers.GlobalAveragePooling2D()(x)
-        x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
-        model = tf.keras.Model(inputs=base_model.input, outputs=x)
-        model_name = "ResNet101V2" + "." + os.environ.get("SLURM_JOB_ID")
-    elif args.arch == "resnet152":
-        base_model = tf.keras.applications.ResNet152V2(
-            include_top=False, input_shape=input_shape)
-        x = base_model.output
-        x = tf.keras.layers.GlobalAveragePooling2D()(x)
-        x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
-        model = tf.keras.Model(inputs=base_model.input, outputs=x)
-        model_name = "ResNet152V2" + "." + os.environ.get("SLURM_JOB_ID")
-    elif args.arch == "inception":
-        base_model = tf.keras.applications.InceptionV3(
-            include_top=False, input_shape=input_shape)
-        x = base_model.output
-        x = tf.keras.layers.GlobalAveragePooling2D()(x)
-        x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
-        model = tf.keras.Model(inputs=base_model.input, outputs=x)
-        model_name = "InceptionV3" + "." + os.environ.get("SLURM_JOB_ID")
-    elif args.arch == "mobilenet":
-        base_model = tf.keras.applications.MobileNetV2(
-            include_top=False, input_shape=input_shape)
-        x = base_model.output
-        x = tf.keras.layers.GlobalAveragePooling2D()(x)
-        x = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
-        model = tf.keras.Model(inputs=base_model.input, outputs=x)
-        model_name = "MobileNetV2" + "." + os.environ.get("SLURM_JOB_ID")
-    else:
-        logging.fatal("wrong architecture name")
-        sys.exit()
 
     dataset = CustomPreProcessed448(
         "/data/mguevaral/crop_bbox", img_size, num_classes=num_classes)
@@ -85,7 +79,7 @@ if __name__ == "__main__":
     test_generator = dataset.get_dataset_generator(training=False)
 
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(patience=50),
+        tf.keras.callbacks.EarlyStopping(patience=25),
         tf.keras.callbacks.ModelCheckpoint(
             filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/weights.h5", save_best_only=True),
         tf.keras.callbacks.TensorBoard(
@@ -94,13 +88,10 @@ if __name__ == "__main__":
             "/home/mguevaral/jpedro/phenotype-classifier/logs/" + model_name + "/log.csv", separator=",", append=False),
     ]
 
-    lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate=1e-2,
-        decay_steps=10000,
-        decay_rate=0.9)
-    optimizer = tf.keras.optimizers.SGD(learning_rate=lr_schedule)
-    model.compile(loss="categorical_crossentropy",
-                  optimizer=optimizer, metrics=["accuracy"], )
+    optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
+    model.compile(
+        optimizer=optimizer, loss="categorical_crossentropy", metrics=["accuracy"]
+    )
 
     model.fit(train_generator,
               batch_size=batch_size,
@@ -117,3 +108,11 @@ if __name__ == "__main__":
     print("Test accuracy:", score[1])
     model.save(
         "/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name)
+
+    # Predict
+    y_prediction = model.predict(dataset.x_test)
+
+    # Create confusion matrix and normalizes it over predicted (columns)
+    result = confusion_matrix(
+        dataset.y_test, y_prediction.argmax(axis=-1), normalize='pred')
+    print(result)
