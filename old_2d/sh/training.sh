@@ -16,4 +16,4 @@ source /home/mguevaral/jpedro/phenotype-classifier/venv/bin/activate
 module load CUDA
 module load cuDNN
 
-python /home/mguevaral/jpedro/phenotype-classifier/train_and_evaluate.py -p $1
+python /home/mguevaral/jpedro/phenotype-classifier/train_and_evaluate.py --arch $1

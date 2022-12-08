@@ -10,8 +10,13 @@ from PIL import Image
 
 from generator import DataGenerator
 
+# 0 - Luminal-like
+# 1 - ER/PR pos, HER2 pos
+# 2 - ER & PR neg, HER2 pos
+# 3 - Triple Negative
 
-class CustomPreProcessed448:
+
+class Slice_Dataset_2D:
     def __init__(self, path, crop_size=(448, 448), num_classes=1):
         self._path = path
         self._crop_size = crop_size
@@ -44,7 +49,7 @@ class CustomPreProcessed448:
             # Match the case number with the phenotype class
             phenotype = classes_csv.loc[classes_csv["patient_id"]
                                         == case]["mol_subtype"]
-            if phenotype is None:
+            if phenotype is None or phenotype.tolist()[0] == 0:
                 continue
             else:
                 try:
@@ -84,21 +89,33 @@ class CustomPreProcessed448:
               [x, ":", y_test.count(x)] for x in set(y_test)])
 
         self.x_train = np.array(x_train)
-        self.x_test = np.array(x_test)
         self.y_train = np.array(y_train)
+        self.y_train -= 1
+        self.y_train = self.y_train.reshape((self.y_train.shape[0], 1))
+        print("Train dataset shape:", self.x_train.shape, self.y_train.shape)
+        self.x_test = np.array(x_test)
         self.y_test = np.array(y_test)
+        self.y_test -= 1
+        self.y_test = self.y_test.reshape((self.y_test.shape[0], 1))
+        print("Train dataset shape:", self.x_test.shape, self.y_test.shape)
+        
+        counts = np.bincount(self.y_train[:, 0])
+        self.class_weight = dict()
+        for i in range(num_classes):
+            self.class_weight[i] = 1.0 / counts[i]
+        print(self.class_weight)
 
         print("Dataset ready!")
 
     def get_dataset_generator(self, training=True, batch_size=32):
         if training:
-            return DataGenerator(self.x_train, self.y_train, batch_size=batch_size, dim=self._crop_size, n_classes=self._num_classes, shuffle=True)
+            return DataGenerator(self.x_train, self.y_train, batch_size=batch_size, dim=self._crop_size, n_classes=self._num_classes, shuffle=True), self.class_weight
         else:
-            return DataGenerator(self.x_test, self.y_test, batch_size=batch_size, dim=self._crop_size, n_classes=self._num_classes, shuffle=False)
+            return DataGenerator(self.x_test, self.y_test, batch_size=batch_size, dim=self._crop_size, n_classes=self._num_classes, shuffle=False), None
 
 
 if __name__ == "__main__":
     img_size = (224, 224)
     num_classes = 4
-    dataset = CustomPreProcessed448(
+    dataset = Slice_Dataset_2D(
         sys.argv[1], img_size, num_classes=num_classes)
