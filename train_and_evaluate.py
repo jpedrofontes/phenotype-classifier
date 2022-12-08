@@ -6,6 +6,13 @@ import tensorflow as tf
 from load_dataset.generator_3d import DataGenerator
 from models.cnn3d import CNN3D
 
+phenotypes = {
+    0: "Luminal-like",
+    1: "ER/PR pos, HER2 pos",
+    2: "ER & PR neg, HER2 pos",
+    3: "Triple Negative"
+}
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
@@ -21,10 +28,10 @@ if __name__ == "__main__":
         '/data/mguevaral/crop_bbox/', stage='train', dim=input_size, batch_size=batch_size, positive_class=args.phenotype)
     test_generator = DataGenerator(
         '/data/mguevaral/crop_bbox/', stage='test', dim=input_size, batch_size=batch_size, positive_class=args.phenotype)
-    
+
     model = CNN3D(input_size[0], input_size[1], input_size[2]).__get_model__()
-    model_name = "CNN3D." + os.environ.get("SLURM_JOB_ID")
-    
+    model_name = "CNN3D." + os.environ.get("SLURM_JOB_ID") + "." + phenotypes[args.phenotype] 
+
     callbacks = [
         tf.keras.callbacks.EarlyStopping(patience=25),
         tf.keras.callbacks.ModelCheckpoint(
@@ -32,7 +39,7 @@ if __name__ == "__main__":
         tf.keras.callbacks.TensorBoard(
             log_dir="/home/mguevaral/jpedro/phenotype-classifier/logs/" + model_name),
     ]
-    
+
     initial_learning_rate = 0.0001
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate, decay_steps=100000, decay_rate=0.96, staircase=True
