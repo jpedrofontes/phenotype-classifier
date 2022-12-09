@@ -8,26 +8,22 @@ class CNN3D:
         # Stack layers
         inputs = keras.Input((width, height, depth, 1))
 
-        x = layers.Conv3D(filters=64, kernel_size=3, activation="relu")(inputs)
-        x = layers.MaxPool3D(pool_size=2)(x)
-        x = layers.BatchNormalization()(x)
+        # Stack convolutional and pooling layers
+        x = inputs
+        for i in range(4):
+            x = layers.Conv3D(filters=64 * (2 ** i),
+                            kernel_size=3, activation="relu")(x)
+            x = layers.MaxPool3D(pool_size=2)(x)
+            x = layers.BatchNormalization()(x)
 
-        x = layers.Conv3D(filters=64, kernel_size=3, activation="relu")(x)
-        x = layers.MaxPool3D(pool_size=2)(x)
-        x = layers.BatchNormalization()(x)
-
-        x = layers.Conv3D(filters=128, kernel_size=3, activation="relu")(x)
-        x = layers.MaxPool3D(pool_size=2)(x)
-        x = layers.BatchNormalization()(x)
-
-        x = layers.Conv3D(filters=256, kernel_size=3, activation="relu")(x)
-        x = layers.MaxPool3D(pool_size=2)(x)
-        x = layers.BatchNormalization()(x)
-
+        # Add a global average pooling layer
         x = layers.GlobalAveragePooling3D()(x)
+
+        # Add a dense layer with dropout
         x = layers.Dense(units=512, activation="relu")(x)
         x = layers.Dropout(0.3)(x)
 
+        # Define the output tensor
         outputs = layers.Dense(units=1, activation="sigmoid")(x)
 
         # Define the model
