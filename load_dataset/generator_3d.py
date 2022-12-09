@@ -7,20 +7,22 @@ from load_dataset.dataset_3d import Dataset_3D
 
 
 class DataGenerator(keras.utils.Sequence):
-    'Generates data for Keras'
-
-    def __init__(self, path, stage="train", batch_size=32, dim=(64, 128, 128), positive_class=0, shuffle=True):
+    def __init__(self, path, dataset=None, stage="train", batch_size=32, dim=(64, 128, 128), positive_class=0, shuffle=True):
         'Initialization'
         self.dim = dim
         self.batch_size = batch_size
         self.path = path
-        self.dataset = Dataset_3D(path, crop_size=dim)
+        if dataset is None or not isinstance(dataset, Dataset_3D):
+            self.dataset = Dataset_3D(path, crop_size=dim)
+        else:
+            self.dataset = dataset
         self.positive_class = positive_class
         self.stage = stage
         self.volumes = list(self.dataset.volumes.keys())[0:int(0.9*len(self.dataset.volumes))] if stage == "train" else list(
             self.dataset.volumes.keys())[int(0.9*len(self.dataset.volumes)):len(self.dataset.volumes)]
         self.list_IDs = [x for x in range(len(self.volumes))]
         self.shuffle = shuffle
+        self.__class_weights()
         self.on_epoch_end()
 
     def __len__(self):
@@ -59,10 +61,23 @@ class DataGenerator(keras.utils.Sequence):
             y[i] = 1 if phenotype == self.positive_class else 0
         return X, y
 
+    def __class_weights(self):
+        self.counts = [0, 0]
+        self.counts[0] = len(
+            [x for x in self.dataset.volumes if self.dataset.volumes[x]["phenotype"] != self.positive_class])
+        self.counts[1] = len(
+            [x for x in self.dataset.volumes if self.dataset.volumes[x]["phenotype"] == self.positive_class])
+        self.weight_for_0 = 100.0 / self.counts[0]
+        self.weight_for_1 = 100.0 / self.counts[1]
+
 
 if __name__ == "__main__":
-    generator = DataGenerator(sys.argv[1], positive_class=0)
+    generator = DataGenerator(sys.argv[1], positive_class=int(sys.argv[2]))
     print(
         f"\nNumber of batches (batch size {generator.batch_size}): {generator.__len__()}")
     X, y = generator.__getitem__(0)
     print(f"Batch shape: {X.shape}")
+    print(
+        f"Positive cases: {generator.counts[1]} => Weight: {generator.weight_for_1}")
+    print(
+        f"Negative cases: {generator.counts[0]} => Weight: {generator.weight_for_0}")

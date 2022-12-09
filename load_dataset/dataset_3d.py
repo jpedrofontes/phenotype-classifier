@@ -113,32 +113,3 @@ class Dataset_3D:
         volume = self.resize_volume(
             volume, desired_depth=self.crop_size[0], desired_width=self.crop_size[1], desired_height=self.crop_size[2])
         return volume
-
-
-if __name__ == "__main__":
-    dataset = Dataset_3D(sys.argv[1], crop_size=(64, 128, 128))
-    print("\nCases/Series: %d" % len(list(dataset.volumes.keys())))
-    key = list(dataset.volumes.keys())[0]
-    print("\nExample:\n\nCase/Series: %s" % key)
-    print("Phenotype: %s => %s" % (
-        dataset.volumes[key]["phenotype"], phenotypes[dataset.volumes[key]["phenotype"]]))
-    print("Number of tumor slices: %d" % len(dataset.volumes[key]["slices"]))
-    print("List of slices:")
-    for i in range(len(dataset.volumes[key]["slices"])):
-        slice = dataset.volumes[key]["slices"][i]
-        print(f"\t{slice}")
-    volume = dataset.process_scan(key)
-    print(f"\nVolume shape: {volume.shape}")
-    # Save a figure qith some slices in dfferent rotations
-    fig = plt.figure()
-    fig.suptitle("Tumor Phenotype: {}".format(
-        phenotypes[dataset.volumes[key]["phenotype"]]))
-    plt.set_cmap("bone")
-    a1 = plt.subplot(2, 2, 1)
-    plt.imshow(volume[volume.shape[0]//2-10, :, :].T)
-    a2 = plt.subplot(2, 2, 2)
-    plt.imshow(volume[volume.shape[0]//2, :, :].T)
-    a3 = plt.subplot(2, 2, 3)
-    plt.imshow(volume[volume.shape[0]//2+10, :, :].T)
-    plt.savefig(
-        "/home/mguevaral/jpedro/phenotype-classifier/test/slices.png")
