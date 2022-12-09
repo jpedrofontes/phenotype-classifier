@@ -37,7 +37,7 @@ if __name__ == "__main__":
     model_name = "CNN3D." + os.environ.get("SLURM_JOB_ID") + "." + phenotypes[args.phenotype] 
 
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(patience=25),
+        tf.keras.callbacks.EarlyStopping(patience=50),
         tf.keras.callbacks.ModelCheckpoint(
             filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/weights.h5", save_best_only=True),
         tf.keras.callbacks.TensorBoard(
