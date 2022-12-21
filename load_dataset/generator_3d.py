@@ -22,7 +22,7 @@ class DataGenerator(keras.utils.Sequence):
         self.volumes = list(self.dataset.volumes.keys())[0:int(0.9*len(self.dataset.volumes))] if stage == "train" else list(
             self.dataset.volumes.keys())[int(0.9*len(self.dataset.volumes)):len(self.dataset.volumes)]
         self.list_IDs = [x for x in range(len(self.volumes))]
-        self.shuffle = shuffle  
+        self.shuffle = shuffle
         # Create an instance of the SMOTE resampling technique
         self.oversampler = SMOTE()
         self.__class_weights()
@@ -73,9 +73,9 @@ class DataGenerator(keras.utils.Sequence):
             [x for x in self.dataset.volumes if self.dataset.volumes[x]["phenotype"] != self.positive_class])
         self.counts[1] = len(
             [x for x in self.dataset.volumes if self.dataset.volumes[x]["phenotype"] == self.positive_class])
-        total = len(self.dataset.volumes)
-        self.weight_for_0 = 1(1 / self.counts[0]) * (total) / 2.0
-        self.weight_for_1 = 1(1 / self.counts[1]) * (total) / 2.0
+        total = self.counts[0] + self.counts[1]
+        self.weight_for_0 = 1 / self.counts[0] * total / 2
+        self.weight_for_1 = 1 / self.counts[1] * total / 2
 
 
 if __name__ == "__main__":
