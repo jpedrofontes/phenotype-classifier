@@ -61,28 +61,19 @@ if __name__ == "__main__":
         optimizer=tf.keras.optimizers.Adam(learning_rate=lr_schedule),
         metrics=metrics,
     )
+    # Build the class weights structure
+    class_weight = {0: train_generator.weight_for_0,
+                    1: train_generator.weight_for_1}
     # Get the names of the metrics
     metric_names = [name.replace("val_", "") for name in model.metrics_names]
-    # Train the model using the train_on_batch() method inside a function() method, passing in the callbacks
-    with tf.keras.backend.function(model.inputs, model.outputs, callbacks=callbacks):
-        # Train the model for a specified number of epochs
-        for epoch in range(num_epochs):
-            # Train the model using the train_on_batch() method in a loop
-            for batch_data, batch_labels in train_generator:
-                # Train the model on the current batch of data
-                loss = model.train_on_batch(batch_data, batch_labels)
-            # Evaluate the model on the validation and training datasets
-            train_results = model.evaluate(train_generator, metrics=metrics)
-            val_results = model.evaluate(test_generator, metrics=metrics)
-            # Concatenate the epoch number and the values of the metrics
-            metrics_string = f"Epoch {epoch + 1}/{num_epochs}: "
-            for i in range(len(val_results)):
-                # Add the training metrics to the string
-                metrics_string += f"{metric_names[i]} = {train_results[i]}, "
-                # Add the validation metrics to the string
-                metrics_string += f"val_{metric_names[i]} = {val_results[i]}, "
-            # Print the metrics in a single line
-            print(metrics_string)
+    # Train the model 
+    model.fit(train_generator,
+              batch_size=batch_size,
+              epochs=num_epochs,
+              validation_data=test_generator,
+              verbose=2,
+              callbacks=callbacks,
+              class_weight=class_weight)
     # Load the best model
     model.load_weights(
         "/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/weights.h5")
