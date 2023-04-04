@@ -5,6 +5,7 @@ import numpy as np
 import tensorflow as tf
 from PIL import Image
 from scipy import ndimage
+import visualkeras
 
 from models.cnn3d import CNN3D
 
@@ -96,6 +97,8 @@ if __name__ == "__main__":
         "/home/mguevaral/jpedro/phenotype-classifier/checkpoints", model_name, "weights.h5")
     # Load the model from the specified filepath
     model = load_model(weights_filepath)
+    print(model.summary())
+    visualkeras.layered_view(model, to_file='output.png', legend=True)
     # Get the image filepath from the command line arguments
     image_filepath = sys.argv[2]
     # Make a prediction on the image using the loaded model

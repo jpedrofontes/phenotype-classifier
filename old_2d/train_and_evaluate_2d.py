@@ -85,9 +85,9 @@ if __name__ == "__main__":
     callbacks = [
         tf.keras.callbacks.EarlyStopping(patience=25),
         tf.keras.callbacks.ModelCheckpoint(
-            filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/weights.h5", save_best_only=True),
+            filepath="/home/mguevaral/jpedro/phenotype-classifier/old_2d/checkpoints/" + model_name + "/weights.h5", save_best_only=True),
         tf.keras.callbacks.TensorBoard(
-            log_dir="/home/mguevaral/jpedro/phenotype-classifier/logs/" + model_name),
+            log_dir="/home/mguevaral/jpedro/phenotype-classifier/old_2d/logs/" + model_name),
     ]
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
@@ -102,13 +102,13 @@ if __name__ == "__main__":
               callbacks=callbacks)
 
     model.load_weights(
-        "/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/weights.h5")
+        "/home/mguevaral/jpedro/phenotype-classifier/old_2d/checkpoints/" + model_name + "/weights.h5")
     score = model.evaluate(test_generator, verbose=verbose)
     print("Model:", model_name)
     print("Test loss:", score[0])
     print("Test accuracy:", score[1])
     model.save(
-        "/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name)
+        "/home/mguevaral/jpedro/phenotype-classifier/old_2d/checkpoints/" + model_name)
 
     # Predict
     y_prediction = model.predict(dataset.x_test)
@@ -128,4 +128,4 @@ if __name__ == "__main__":
 
     ## Display the visualization of the Confusion Matrix.
     plt.savefig(
-        '/home/mguevaral/jpedro/phenotype-classifier/logs/' + model_name + '/cf_matrix.png')
+        '/home/mguevaral/jpedro/phenotype-classifier/old_2d/logs/' + model_name + '/cf_matrix.png')

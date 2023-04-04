@@ -9,11 +9,11 @@
 #SBATCH --gres=gpu:2
 #SBATCH --mem=122000
 #SBATCH --cpus-per-task=64
-#SBATCH -o /home/mguevaral/jpedro/phenotype-classifier/logs/%x.%j.out 
+#SBATCH -o /home/mguevaral/jpedro/phenotype-classifier/old_2d/logs/%x.%j.out 
 
 export TF_GPU_ALLOCATOR=cuda_malloc_async
 source /home/mguevaral/jpedro/phenotype-classifier/venv/bin/activate
 module load CUDA
 module load cuDNN
 
-python /home/mguevaral/jpedro/phenotype-classifier/train_and_evaluate.py --arch $1
+python /home/mguevaral/jpedro/phenotype-classifier/old_2d/train_and_evaluate_2d.py --arch $1
