@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH --job-name=phenotype_classifier
+#SBATCH --job-name=phenotype_classifier_2d
 #SBATCH --time=1000:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -12,7 +12,7 @@
 #SBATCH -o /home/mguevaral/jpedro/phenotype-classifier/old_2d/logs/%x.%j.out 
 
 export TF_GPU_ALLOCATOR=cuda_malloc_async
-source /home/mguevaral/jpedro/phenotype-classifier/venv/bin/activate
+source /home/mguevaral/jpedro/phenotype-classifier/old_2d/venv/bin/activate
 module load CUDA
 module load cuDNN
 

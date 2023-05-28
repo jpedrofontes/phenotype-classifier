@@ -9,10 +9,10 @@ from load_dataset.dataset_3d import Dataset_3D
 from models.cnn3d import CNN3D
 
 phenotypes = {
-    0: "Luminal-like",
-    1: "ER/PR pos, HER2 pos",
-    2: "ER & PR neg, HER2 pos",
-    3: "Triple Negative"
+    0: "Luminal_A",
+    1: "Luminal_B",
+    2: "HER2_Enriched",
+    3: "Triple_Negative"
 }
 
 
@@ -20,6 +20,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-p', '--phenotype', type=int,
                         help='id of phenotype to identify')
+    parser.add_argument('-t', '--notrain', action='store_true')
     args = parser.parse_args()
 
     np.random.seed(123)
@@ -34,15 +35,15 @@ if __name__ == "__main__":
         '/data/mguevaral/crop_bbox/', dataset=dataset, stage='test', dim=input_size, batch_size=batch_size, positive_class=args.phenotype)
 
     model = CNN3D(input_size[0], input_size[1], input_size[2]).__get_model__()
-    model_name = "CNN3D." + os.environ.get("SLURM_JOB_ID") + "." + phenotypes[args.phenotype] 
-
+    model_name = "CNN3D." + \
+        os.environ.get("SLURM_JOB_ID") + "." + phenotypes[args.phenotype]
     callbacks = [
         tf.keras.callbacks.EarlyStopping(patience=50),
         tf.keras.callbacks.ModelCheckpoint(
             filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/weights.h5", save_best_only=True),
         tf.keras.callbacks.TensorBoard(
             log_dir="/home/mguevaral/jpedro/phenotype-classifier/logs/" + model_name)
-    ]    
+    ]
     initial_learning_rate = 0.0001
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate, decay_steps=100000, decay_rate=0.96, staircase=True
@@ -64,22 +65,17 @@ if __name__ == "__main__":
     # Build the class weights structure
     class_weight = {0: train_generator.weight_for_0,
                     1: train_generator.weight_for_1}
-    # Get the names of the metrics
-    metric_names = [name.replace("val_", "") for name in model.metrics_names]
-    # Train the model 
-    model.fit(train_generator,
-              batch_size=batch_size,
-              epochs=num_epochs,
-              validation_data=test_generator,
-              verbose=2,
-              callbacks=callbacks,
-              class_weight=class_weight)
+    # Train the model
+    if not args.notrain:
+        model.fit(train_generator,
+                batch_size=batch_size,
+                epochs=num_epochs,
+                validation_data=test_generator,
+                verbose=2,
+                callbacks=callbacks,
+                class_weight=class_weight)
     # Load the best model
     model.load_weights(
         "/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name + "/weights.h5")
     # Evaluate the model on the test data
     score = model.evaluate(test_generator, verbose=2)
-    # Print the final metrics in a readable format
-    print("Model:", model_name)
-    for i in range(len(score)):
-        print(f"{metric_names[i]}: {score[i]}")

@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('--verbose', help='verbose mode', action='store_true')
     args = parser.parse_args()
 
-    num_classes = 3
+    num_classes = 2
     img_size = (224, 224)
     input_shape = (224, 224, 3)
     verbose = 1 if args.verbose else 2
@@ -83,8 +83,6 @@ if __name__ == '__main__':
     print("Model:", model_name)
     print("Test loss:", score[0])
     print("Test accuracy:", score[1])
-    model.save(
-        "/home/mguevaral/jpedro/phenotype-classifier/old_2d/checkpoints/" + model_name)
 
     # Predict
     y_prediction = model.predict(dataset.x_test)
@@ -92,15 +90,16 @@ if __name__ == '__main__':
     # Create confusion matrix and normalizes it over predicted (columns)
     cf_matrix = confusion_matrix(
         dataset.y_test, y_prediction.argmax(axis=-1), normalize='pred')
+    print(cf_matrix)
     ax = sn.heatmap(cf_matrix, annot=True, cmap='Blues')
 
-    ax.set_title('Confusion Matrix with labels\n\n')
-    ax.set_xlabel('\nPredicted Values')
-    ax.set_ylabel('Actual Values ')
+    ax.set_title('Confusion Matrix with labels')
+    ax.set_ylabel('Predicted Values')
+    ax.set_xlabel('Actual Values')
 
     ## Ticket labels - List must be in alphabetical order
-    ax.xaxis.set_ticklabels(['0', '1', '2'])
-    ax.yaxis.set_ticklabels(['0', '1', '2'])
+    ax.xaxis.set_ticklabels(['Other', 'Luminal A'])
+    ax.yaxis.set_ticklabels(['Other', 'Luminal A'])
 
     ## Display the visualization of the Confusion Matrix.
     plt.savefig(

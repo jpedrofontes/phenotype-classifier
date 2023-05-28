@@ -19,6 +19,24 @@ def load_model(weights_filepath):
     model = CNN3D(input_size[0], input_size[1], input_size[2]).__get_model__()
     # Load the weights from the specified filepath
     model.load_weights(weights_filepath)
+    initial_learning_rate = 0.0001
+    lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate, decay_steps=100000, decay_rate=0.96, staircase=True
+    )
+    metrics = [
+        tf.keras.metrics.FalseNegatives(name="fn"),
+        tf.keras.metrics.FalsePositives(name="fp"),
+        tf.keras.metrics.TrueNegatives(name="tn"),
+        tf.keras.metrics.TruePositives(name="tp"),
+        tf.keras.metrics.Precision(name="precision"),
+        tf.keras.metrics.Recall(name="recall"),
+        tf.keras.metrics.AUC(name='auc'),
+    ]
+    model.compile(
+        loss="binary_crossentropy",
+        optimizer=tf.keras.optimizers.Adam(learning_rate=lr_schedule),
+        metrics=metrics,
+    )
     return model
 
 
@@ -98,9 +116,15 @@ if __name__ == "__main__":
     # Load the model from the specified filepath
     model = load_model(weights_filepath)
     print(model.summary())
-    visualkeras.layered_view(model, to_file='output.png', legend=True)
+    # visualkeras.layered_view(model, to_file='output.png', legend=True)
     # Get the image filepath from the command line arguments
     image_filepath = sys.argv[2]
     # Make a prediction on the image using the loaded model
     prediction = make_prediction(model, image_filepath)
     print(f"Prediction: {prediction}")
+    # Get the names of the metrics
+    metric_names = [name.replace("val_", "") for name in model.metrics_names]
+    # Print the final metrics in a readable format
+    print("Model:", model_name)
+    for i in range(len(prediction)):
+        print(f"{metric_names[i]}: {prediction[i]}")

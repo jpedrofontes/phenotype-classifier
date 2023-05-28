@@ -1,13 +1,17 @@
+import os
+
 import numpy as np
 import keras
+from PIL import Image
 
 
 class DataGenerator(keras.utils.Sequence):
     'Generates data for Keras'
 
-    def __init__(self, images, labels, batch_size=32, dim=(224, 224), n_channels=3,
+    def __init__(self, images, labels, path, batch_size=32, dim=(224, 224), n_channels=3,
                  n_classes=10, shuffle=True):
         'Initialization'
+        self.path = path
         self.dim = dim
         self.batch_size = batch_size
         self.images = images
@@ -45,13 +49,22 @@ class DataGenerator(keras.utils.Sequence):
         # X : (n_samples, *dim, n_channels)
         'Generates data containing batch_size samples'
         # Initialization
-        X = np.empty((self.batch_size, *self.dim, self.n_channels))
+        X = np.empty((self.batch_size, 224, 224, 3))
         y = np.empty((self.batch_size), dtype=int)
 
         # Generate data
         for i, ID in enumerate(list_IDs_temp):
+            # Read the image and resize it
+            img = Image.open(os.path.join(
+                self.path, self.images[i])).convert('RGB')
+            img = img.resize((224, 224))
+            img = np.array(img)
+
+            # Preprocess the image
+            img = img/255
+
             # Store sample
-            X[i, ] = self.images[i]
+            X[i, ] = img
 
             # Store class
             y[i] = self.labels[ID]

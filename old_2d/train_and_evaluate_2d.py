@@ -19,23 +19,23 @@ if __name__ == "__main__":
     parser.add_argument('--verbose', help='verbose mode', action='store_true')
     args = parser.parse_args()
 
-    num_classes = 3
+    num_classes = 2
     img_size = (224, 224)
     input_shape = (224, 224, 3)
     verbose = 1 if args.verbose else 2
-    batch_size = 128
+    batch_size = 32
     epochs = 500
     lr = 1e-2
     
-    img_augmentation = tf.keras.Sequential(
-        [
-            tf.keras.layers.RandomRotation(factor=0.15),
-            tf.keras.layers.RandomTranslation(height_factor=0.1, width_factor=0.1),
-            tf.keras.layers.RandomFlip(),
-            tf.keras.layers.RandomContrast(factor=0.1),
-        ],
-        name="img_augmentation",
-    )
+    # img_augmentation = tf.keras.Sequential(
+    #     [
+    #         tf.keras.layers.RandomRotation(factor=0.15),
+    #         tf.keras.layers.RandomTranslation(height_factor=0.1, width_factor=0.1),
+    #         tf.keras.layers.RandomFlip(),
+    #         tf.keras.layers.RandomContrast(factor=0.1),
+    #     ],
+    #     name="img_augmentation",
+    # )
 
     if args.arch == "resnet152":
         inputs = tf.keras.layers.Input(shape=input_shape)
@@ -89,10 +89,19 @@ if __name__ == "__main__":
         tf.keras.callbacks.TensorBoard(
             log_dir="/home/mguevaral/jpedro/phenotype-classifier/old_2d/logs/" + model_name),
     ]
+    metrics = [
+        tf.keras.metrics.FalseNegatives(name="fn"),
+        tf.keras.metrics.FalsePositives(name="fp"),
+        tf.keras.metrics.TrueNegatives(name="tn"),
+        tf.keras.metrics.TruePositives(name="tp"),
+        tf.keras.metrics.Precision(name="precision"),
+        tf.keras.metrics.Recall(name="recall"),
+        tf.keras.metrics.AUC(name='auc'),
+    ]
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
     model.compile(
-        optimizer=optimizer, loss="categorical_crossentropy", metrics=["accuracy"])
+        optimizer=optimizer, loss="categorical_crossentropy", metrics=metrics)
 
     model.fit(train_generator,
               batch_size=batch_size,
@@ -116,6 +125,7 @@ if __name__ == "__main__":
     # Create confusion matrix and normalizes it over predicted (columns)
     cf_matrix = confusion_matrix(
         dataset.y_test, y_prediction.argmax(axis=-1), normalize='pred')
+    print(cf_matrix)
     ax = sn.heatmap(cf_matrix, annot=True, cmap='Blues')
 
     ax.set_title('Confusion Matrix with labels\n\n')
@@ -123,8 +133,8 @@ if __name__ == "__main__":
     ax.set_ylabel('Actual Values ')
 
     ## Ticket labels - List must be in alphabetical order
-    ax.xaxis.set_ticklabels(['0', '1', '2'])
-    ax.yaxis.set_ticklabels(['0', '1', '2'])
+    ax.xaxis.set_ticklabels(['Other', 'Luminal A'])
+    ax.yaxis.set_ticklabels(['Other', 'Luminal A'])
 
     ## Display the visualization of the Confusion Matrix.
     plt.savefig(
