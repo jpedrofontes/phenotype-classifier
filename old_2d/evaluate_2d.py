@@ -37,7 +37,7 @@ if __name__ == '__main__':
         top_dropout_rate = 0.2
         x = tf.keras.layers.Dropout(top_dropout_rate, name="top_dropout")(x)
         outputs = tf.keras.layers.Dense(
-            num_classes, activation="softmax", name="pred")(x)
+            units=1, activation="sigmoid", name="pred")(x)
         model = tf.keras.Model(inputs=inputs,
                                outputs=outputs, name="ResNet152V2")
         model_name = "ResNet152V2" + "." + os.environ.get("SLURM_JOB_ID")
@@ -52,7 +52,7 @@ if __name__ == '__main__':
         top_dropout_rate = 0.2
         x = tf.keras.layers.Dropout(top_dropout_rate, name="top_dropout")(x)
         outputs = tf.keras.layers.Dense(
-            num_classes, activation="softmax", name="pred")(x)
+            units=1, activation="sigmoid", name="pred")(x)
         model = tf.keras.Model(inputs=inputs,
                                outputs=outputs, name="EfficientNet")
         model_name = "EfficientNet" + "." + os.environ.get("SLURM_JOB_ID")
@@ -66,9 +66,21 @@ if __name__ == '__main__':
             '_'.join(map(str, args.sizes)) + "." + \
             os.environ.get("SLURM_JOB_ID")
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
+    metrics = [
+        tf.keras.metrics.FalseNegatives(name="fn"),
+        tf.keras.metrics.FalsePositives(name="fp"),
+        tf.keras.metrics.TrueNegatives(name="tn"),
+        tf.keras.metrics.TruePositives(name="tp"),
+        tf.keras.metrics.Precision(name="precision"),
+        tf.keras.metrics.Recall(name="recall"),
+        tf.keras.metrics.AUC(name='auc'),
+        tf.keras.metrics.Accuracy(name="accuracy"),
+    ]
     model.compile(
-        optimizer=optimizer, loss="categorical_crossentropy", metrics=["accuracy"])
+        loss="binary_crossentropy",
+        optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
+        metrics=metrics,
+    )
     print(model.summary())
 
     dataset = Slice_Dataset_2D(
@@ -76,7 +88,7 @@ if __name__ == '__main__':
     train_generator, class_weights = dataset.get_dataset_generator(
         batch_size=batch_size)
     test_generator, _ = dataset.get_dataset_generator(training=False)
-    
+
     model.load_weights(
         "/home/mguevaral/jpedro/phenotype-classifier/old_2d/checkpoints/" + model_name + "/weights.h5")
     score = model.evaluate(test_generator, verbose=verbose)
@@ -97,10 +109,10 @@ if __name__ == '__main__':
     ax.set_ylabel('Predicted Values')
     ax.set_xlabel('Actual Values')
 
-    ## Ticket labels - List must be in alphabetical order
+    # Ticket labels - List must be in alphabetical order
     ax.xaxis.set_ticklabels(['Other', 'Luminal A'])
     ax.yaxis.set_ticklabels(['Other', 'Luminal A'])
 
-    ## Display the visualization of the Confusion Matrix.
+    # Display the visualization of the Confusion Matrix.
     plt.savefig(
         '/home/mguevaral/jpedro/phenotype-classifier/old_2d/logs/' + model_name + '/cf_matrix.png')

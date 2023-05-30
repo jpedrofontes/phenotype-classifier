@@ -47,7 +47,7 @@ if __name__ == "__main__":
         top_dropout_rate = 0.2
         x = tf.keras.layers.Dropout(top_dropout_rate, name="top_dropout")(x)
         outputs = tf.keras.layers.Dense(
-            num_classes, activation="softmax", name="pred")(x)
+            units=1, activation="sigmoid", name="pred")(x)
         model = tf.keras.Model(inputs=inputs,
                                outputs=outputs, name="ResNet152V2")
         model_name = "ResNet152V2" + "." + os.environ.get("SLURM_JOB_ID")
@@ -61,7 +61,8 @@ if __name__ == "__main__":
         x = tf.keras.layers.BatchNormalization()(x)
         top_dropout_rate = 0.2
         x = tf.keras.layers.Dropout(top_dropout_rate, name="top_dropout")(x)
-        outputs = tf.keras.layers.Dense(num_classes, activation="softmax", name="pred")(x)
+        outputs = tf.keras.layers.Dense(
+            units=1, activation="sigmoid", name="pred")(x)
         model = tf.keras.Model(inputs=inputs,
                                outputs=outputs, name="EfficientNet")
         model_name = "EfficientNet" + "." + os.environ.get("SLURM_JOB_ID")
@@ -97,17 +98,26 @@ if __name__ == "__main__":
         tf.keras.metrics.Precision(name="precision"),
         tf.keras.metrics.Recall(name="recall"),
         tf.keras.metrics.AUC(name='auc'),
+        tf.keras.metrics.Accuracy(name="accuracy"),
     ]
+    initial_learning_rate = 0.0001
+    lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate, decay_steps=100000, decay_rate=0.96, staircase=True
+    )
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
     model.compile(
-        optimizer=optimizer, loss="categorical_crossentropy", metrics=metrics)
+        loss="binary_crossentropy",
+        optimizer=tf.keras.optimizers.Adam(learning_rate=lr_schedule),
+        metrics=metrics,
+    )
 
     model.fit(train_generator,
               batch_size=batch_size,
               epochs=epochs,
               validation_data=test_generator,
               verbose=verbose,
+              class_weights=class_weights,
               callbacks=callbacks)
 
     model.load_weights(

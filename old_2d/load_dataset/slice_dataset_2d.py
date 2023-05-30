@@ -1,5 +1,6 @@
 import glob
 import os
+import random
 import re
 import sys
 
@@ -32,14 +33,7 @@ class Slice_Dataset_2D:
         os.chdir(self.path)
         print("Reading dataset...")
         for file in glob.glob("*.jpg"):
-            # # Read the image and resize it
-            # img = Image.open(os.path.join(self.path, file)).convert('RGB')
-            # img = img.resize(self._crop_size)
-            # img = np.array(img)
-
-            # # Preprocess the image
-            # img = img/255
-            
+            # Build image path
             img = os.path.join(self.path, file)
 
             # Get the case number of the image
@@ -117,6 +111,6 @@ class Slice_Dataset_2D:
 
 if __name__ == "__main__":
     img_size = (224, 224)
-    num_classes = 4
+    num_classes = 2
     dataset = Slice_Dataset_2D(
         sys.argv[1], img_size, num_classes=num_classes)
