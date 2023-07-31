@@ -1,6 +1,5 @@
 import sys
 
-from imblearn.over_sampling import SMOTE
 import keras
 import numpy as np
 
@@ -23,8 +22,6 @@ class DataGenerator(keras.utils.Sequence):
             self.dataset.volumes.keys())[int(0.9*len(self.dataset.volumes)):len(self.dataset.volumes)]
         self.list_IDs = [x for x in range(len(self.volumes))]
         self.shuffle = shuffle
-        # Create an instance of the SMOTE resampling technique
-        self.oversampler = SMOTE()
         self.__class_weights()
         self.on_epoch_end()
 
@@ -40,9 +37,7 @@ class DataGenerator(keras.utils.Sequence):
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
         # Generate data using the __data_generation() method
         X, y = self.__data_generation(list_IDs_temp)
-        # Apply the fit_resample() method to the generated data
-        # X, y = self.oversampler.fit_resample(X, y)
-        # Return the resampled data
+        # Return the data
         return X, y
 
     def on_epoch_end(self):
