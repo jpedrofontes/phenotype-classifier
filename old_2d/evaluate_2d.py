@@ -74,7 +74,6 @@ if __name__ == '__main__':
         tf.keras.metrics.Precision(name="precision"),
         tf.keras.metrics.Recall(name="recall"),
         tf.keras.metrics.AUC(name='auc'),
-        tf.keras.metrics.Accuracy(name="accuracy"),
     ]
     model.compile(
         loss="binary_crossentropy",

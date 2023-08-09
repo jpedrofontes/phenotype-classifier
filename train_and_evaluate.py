@@ -8,10 +8,10 @@ from sklearn.metrics import confusion_matrix
 
 from load_dataset.dataset_3d import Dataset_3D
 from load_dataset.generator_3d import DataGenerator
-# from models.cnn3d import CNN3D
+from models.cnn3d import CNN3D
 
-phenotypes = {0: "Luminal_A", 1: "Luminal_B", 2: "HER2_Enriched", 3: "Triple_Negative"}
-
+phenotypes = {0: "Luminal_A", 1: "Luminal_B",
+              2: "HER2_Enriched", 3: "Triple_Negative"}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
@@ -44,10 +44,12 @@ if __name__ == "__main__":
         positive_class=args.phenotype,
     )
 
-    # model = CNN3D(input_size[0], input_size[1], input_size[2]).__get_model__()
-    model = Resnet3DBuilder.build_resnet_50((input_size[0], input_size[1], input_size[2]), 1)
+    model = CNN3D(input_size[0], input_size[1], input_size[2]).__get_model__()
+    # model = Resnet3DBuilder.build_resnet_50(
+    #     (input_size[0], input_size[1], input_size[2], 1), 1)
     model_name = (
-        "Resnet50_3D." + os.environ.get("SLURM_JOB_ID") + "." + phenotypes[args.phenotype]
+        "CNN_3D." +
+        os.environ.get("SLURM_JOB_ID") + "." + phenotypes[args.phenotype]
     )
     callbacks = [
         tf.keras.callbacks.EarlyStopping(patience=50),
@@ -80,7 +82,8 @@ if __name__ == "__main__":
         metrics=metrics,
     )
     # Build the class weights structure
-    class_weight = {0: train_generator.weight_for_0, 1: train_generator.weight_for_1}
+    class_weight = {0: train_generator.weight_for_0,
+                    1: train_generator.weight_for_1}
     # Train the model
     if not args.notrain:
         model.fit(

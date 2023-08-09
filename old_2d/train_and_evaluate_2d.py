@@ -24,18 +24,7 @@ if __name__ == "__main__":
     input_shape = (224, 224, 3)
     verbose = 1 if args.verbose else 2
     batch_size = 32
-    epochs = 500
-    lr = 1e-2
-    
-    # img_augmentation = tf.keras.Sequential(
-    #     [
-    #         tf.keras.layers.RandomRotation(factor=0.15),
-    #         tf.keras.layers.RandomTranslation(height_factor=0.1, width_factor=0.1),
-    #         tf.keras.layers.RandomFlip(),
-    #         tf.keras.layers.RandomContrast(factor=0.1),
-    #     ],
-    #     name="img_augmentation",
-    # )
+    epochs = 5000
 
     if args.arch == "resnet152":
         inputs = tf.keras.layers.Input(shape=input_shape)
@@ -98,17 +87,14 @@ if __name__ == "__main__":
         tf.keras.metrics.Precision(name="precision"),
         tf.keras.metrics.Recall(name="recall"),
         tf.keras.metrics.AUC(name='auc'),
-        tf.keras.metrics.Accuracy(name="accuracy"),
     ]
     initial_learning_rate = 0.0001
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate, decay_steps=100000, decay_rate=0.96, staircase=True
     )
-
-    optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
     model.compile(
         loss="binary_crossentropy",
-        optimizer=tf.keras.optimizers.Adam(learning_rate=lr_schedule),
+        optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=lr_schedule),
         metrics=metrics,
     )
 
@@ -117,7 +103,7 @@ if __name__ == "__main__":
               epochs=epochs,
               validation_data=test_generator,
               verbose=verbose,
-              class_weights=class_weights,
+              class_weight=class_weights,
               callbacks=callbacks)
 
     model.load_weights(

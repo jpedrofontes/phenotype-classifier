@@ -7,8 +7,7 @@ from load_dataset.dataset_3d import Dataset_3D
 
 
 class DataGenerator(keras.utils.Sequence):
-    def __init__(self, path, dataset=None, stage="train", batch_size=32, dim=(64, 128, 128), positive_class=0, shuffle=True):
-        'Initialization'
+    def __init__(self, path, dataset=None, indices=None, stage="train", batch_size=32, dim=(64, 128, 128), positive_class=0, shuffle=True):
         self.dim = dim
         self.batch_size = batch_size
         self.path = path
@@ -17,9 +16,12 @@ class DataGenerator(keras.utils.Sequence):
         else:
             self.dataset = dataset
         self.positive_class = positive_class
-        self.stage = stage
-        self.volumes = list(self.dataset.volumes.keys())[0:int(0.9*len(self.dataset.volumes))] if stage == "train" else list(
-            self.dataset.volumes.keys())[int(0.9*len(self.dataset.volumes)):len(self.dataset.volumes)]
+        if indices is None:
+            self.volumes = list(self.dataset.volumes.keys())[0:int(0.9*len(self.dataset.volumes))] if stage == "train" else list(
+                self.dataset.volumes.keys())[int(0.9*len(self.dataset.volumes)):len(self.dataset.volumes)]
+        else:
+            all_volumes = list(self.dataset.volumes.keys())
+            self.volumes = [all_volumes[i] for i in indices]
         self.list_IDs = [x for x in range(len(self.volumes))]
         self.shuffle = shuffle
         self.__class_weights()
@@ -43,7 +45,7 @@ class DataGenerator(keras.utils.Sequence):
     def on_epoch_end(self):
         'Updates indexes after each epoch'
         self.indexes = np.arange(len(self.list_IDs))
-        if self.shuffle == True:
+        if self.shuffle:
             np.random.shuffle(self.indexes)
 
     def __data_generation(self, list_IDs_temp):
@@ -64,13 +66,18 @@ class DataGenerator(keras.utils.Sequence):
 
     def __class_weights(self):
         self.counts = [0, 0]
+
+        # Calculate based on the current fold's volumes (self.volumes) instead of the entire dataset
         self.counts[0] = len(
-            [x for x in self.dataset.volumes if self.dataset.volumes[x]["phenotype"] != self.positive_class])
+            [x for x in self.volumes if self.dataset.volumes[x]["phenotype"] != self.positive_class])
         self.counts[1] = len(
-            [x for x in self.dataset.volumes if self.dataset.volumes[x]["phenotype"] == self.positive_class])
+            [x for x in self.volumes if self.dataset.volumes[x]["phenotype"] == self.positive_class])
+
         total = self.counts[0] + self.counts[1]
-        self.weight_for_0 = 1 / self.counts[0] * total / 2
-        self.weight_for_1 = 1 / self.counts[1] * total / 2
+        self.weight_for_0 = (total / 2) / \
+            self.counts[0] if self.counts[0] != 0 else 0
+        self.weight_for_1 = (total / 2) / \
+            self.counts[1] if self.counts[1] != 0 else 0
 
 
 if __name__ == "__main__":
