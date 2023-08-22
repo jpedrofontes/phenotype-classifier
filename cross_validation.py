@@ -20,7 +20,10 @@ if __name__ == "__main__":
         "-p", "--phenotype", type=int, help="id of phenotype to identify"
     )
     parser.add_argument(
-        "-k", "--k-fold", type=int, help="number of folds to use", default=5
+        "-k", "--folds", type=int, help="number of folds to use", default=5
+    )
+    parser.add_argument(
+        "-m", "--model", type=str, help="model architecture to use", default="cnn", choices=['cnn', 'resnet']
     )
     parser.add_argument("-t", "--notrain", action="store_true")
     args = parser.parse_args()
@@ -28,19 +31,19 @@ if __name__ == "__main__":
     np.random.seed(123)
     input_size = (64, 128, 128)
     batch_size = 4
-    num_epochs = 100
-    n_splits = 5
+    num_epochs = 500
 
     # Create a list of all phenotypes for StratifiedKFold
     dataset = Dataset_3D("/data/mguevaral/crop_bbox/",
-                            crop_size=input_size)
-    phenotypes_list = [dataset.volumes[v]["phenotype"] for v in dataset.volumes]
-    kf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=123)
+                         crop_size=input_size)
+    phenotypes_list = [dataset.volumes[v]["phenotype"]
+                       for v in dataset.volumes]
+    kf = StratifiedKFold(n_splits=args.folds, shuffle=True, random_state=123)
 
     fold_num = 1
 
     for train_indices, val_indices in kf.split(np.zeros(len(phenotypes_list)), phenotypes_list):
-        print(f"Training on fold {fold_num}/{n_splits}")        
+        print(f"Training on fold {fold_num}/{args.folds}")
 
         # Create data generators for the current fold
         train_generator = DataGenerator(
@@ -60,17 +63,25 @@ if __name__ == "__main__":
             positive_class=args.phenotype,
         )
 
-        model = CNN3D(input_size[0], input_size[1], input_size[2]).__get_model__()
-        # model = Resnet3DBuilder.build_resnet_50(
-        #     (input_size[0], input_size[1], input_size[2], 1), 1)
-        model_name = (
-            "CNN_3D." +
-            os.environ.get("SLURM_JOB_ID") + "." +
-            phenotypes[args.phenotype] + f".fold_{fold_num}"
-        )
+        if args.model == 'cnn':
+            model = CNN3D(input_size[0], input_size[1],
+                        input_size[2]).__get_model__()
+            model_name = (
+                "CNN_3D." +
+                os.environ.get("SLURM_JOB_ID") + "." +
+                phenotypes[args.phenotype] + f".fold_{fold_num}"
+            )
+        elif args.model == 'resnet':
+            model = Resnet3DBuilder.build_resnet_152(
+                (input_size[0], input_size[1], input_size[2], 1), 1)
+            model_name = (
+                "Resnet152." +
+                os.environ.get("SLURM_JOB_ID") + "." +
+                phenotypes[args.phenotype] + f".fold_{fold_num}"
+            )
 
         callbacks = [
-            tf.keras.callbacks.EarlyStopping(patience=50),
+            tf.keras.callbacks.EarlyStopping(patience=15),
             tf.keras.callbacks.ModelCheckpoint(
                 filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/"
                 + model_name
@@ -109,7 +120,7 @@ if __name__ == "__main__":
                 batch_size=batch_size,
                 epochs=num_epochs,
                 validation_data=val_generator,
-                verbose=2,
+                verbose=0,
                 callbacks=callbacks,
                 class_weight=class_weight,
             )
@@ -119,19 +130,13 @@ if __name__ == "__main__":
             + model_name
             + "/weights.h5"
         )
-        
+
         # Evaluate the model for the current fold
         score = model.evaluate(val_generator, verbose=2)
-        print(f"Fold {fold_num} - Test loss:", score[0])
-        print(f"Fold {fold_num} - Test accuracy:", score[1])
+        print(f"Fold {fold_num} - :", score)
+        print("legend: ", model.metrics_names)
         model.save(
             "/home/mguevaral/jpedro/phenotype-classifier/checkpoints/" + model_name
         )
 
-        # Predict
-        y_prediction = model.predict(val_generator)
-
-        # Create confusion matrix and normalizes it over predicted (columns)
-        cf_matrix = confusion_matrix(
-            dataset.y_test, y_prediction.argmax(axis=-1), normalize='pred')
-        print(cf_matrix)
+        fold_num += 1
