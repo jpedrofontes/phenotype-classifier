@@ -16,4 +16,4 @@ source /home/mguevaral/jpedro/phenotype-classifier/venv/bin/activate
 module load CUDA
 module load cuDNN
 
-python /home/mguevaral/jpedro/phenotype-classifier/cross_validation.py -p $1 -k $2 
+python /home/mguevaral/jpedro/phenotype-classifier/cross_validation.py -p $1 -k $2 -m $3

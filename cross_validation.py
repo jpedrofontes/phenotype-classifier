@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
     np.random.seed(123)
     input_size = (64, 128, 128)
-    batch_size = 4
+    batch_size = 2
     num_epochs = 500
 
     # Create a list of all phenotypes for StratifiedKFold
@@ -79,6 +79,7 @@ if __name__ == "__main__":
                 os.environ.get("SLURM_JOB_ID") + "." +
                 phenotypes[args.phenotype] + f".fold_{fold_num}"
             )
+        print(model_name)
 
         callbacks = [
             tf.keras.callbacks.EarlyStopping(patience=15),

@@ -23,8 +23,8 @@ if __name__ == "__main__":
 
     np.random.seed(123)
     input_size = (64, 128, 128)
-    batch_size = 4
-    num_epochs = 100
+    batch_size = 2
+    num_epochs = 1000
 
     dataset = Dataset_3D("/data/mguevaral/crop_bbox/", crop_size=input_size)
     train_generator = DataGenerator(
@@ -44,13 +44,18 @@ if __name__ == "__main__":
         positive_class=args.phenotype,
     )
 
-    model = CNN3D(input_size[0], input_size[1], input_size[2]).__get_model__()
-    # model = Resnet3DBuilder.build_resnet_50(
-    #     (input_size[0], input_size[1], input_size[2], 1), 1)
+    # model = CNN3D(input_size[0], input_size[1], input_size[2]).__get_model__()
+    # model_name = (
+    #     "CNN_3D." +
+    #     os.environ.get("SLURM_JOB_ID") + "." + phenotypes[args.phenotype]
+    # )
+    model = Resnet3DBuilder.build_resnet_50(
+        (input_size[0], input_size[1], input_size[2], 1), 1)
     model_name = (
-        "CNN_3D." +
+        "Resnet_3D." +
         os.environ.get("SLURM_JOB_ID") + "." + phenotypes[args.phenotype]
     )
+    print(model_name)
     callbacks = [
         tf.keras.callbacks.EarlyStopping(patience=50),
         tf.keras.callbacks.ModelCheckpoint(

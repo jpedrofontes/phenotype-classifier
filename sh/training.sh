@@ -6,9 +6,9 @@
 #SBATCH --ntasks=1
 #SBATCH --partition=compute
 #SBATCH --nodelist=vision1
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:1
 #SBATCH --mem=122000
-#SBATCH --cpus-per-task=64
+#SBATCH --cpus-per-task=32
 #SBATCH -o /home/mguevaral/jpedro/phenotype-classifier/logs/%x.%j.out 
 
 export TF_GPU_ALLOCATOR=cuda_malloc_async

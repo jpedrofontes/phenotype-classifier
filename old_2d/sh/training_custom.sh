@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --partition=compute
 #SBATCH --nodelist=vision1
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:1
 #SBATCH --mem=122000
 #SBATCH --cpus-per-task=32
 #SBATCH -o /home/mguevaral/jpedro/phenotype-classifier/logs/%x.%j.out 
@@ -16,4 +16,4 @@ source /home/mguevaral/jpedro/phenotype-classifier/venv/bin/activate
 module load CUDA
 module load cuDNN
 
-python /home/mguevaral/jpedro/phenotype-classifier/train_and_evaluate.py --sizes $@
+python /home/mguevaral/jpedro/phenotype-classifier/old_2d/train_and_evaluate_2d.py --sizes $@

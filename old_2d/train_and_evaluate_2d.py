@@ -40,7 +40,7 @@ if __name__ == "__main__":
         model = tf.keras.Model(inputs=inputs,
                                outputs=outputs, name="ResNet152V2")
         model_name = "ResNet152V2" + "." + os.environ.get("SLURM_JOB_ID")
-        
+
     elif args.arch == "efficientnet":
         inputs = tf.keras.layers.Input(shape=input_shape)
         # x = img_augmentation(inputs)
@@ -55,7 +55,7 @@ if __name__ == "__main__":
         model = tf.keras.Model(inputs=inputs,
                                outputs=outputs, name="EfficientNet")
         model_name = "EfficientNet" + "." + os.environ.get("SLURM_JOB_ID")
-        
+
     else:
         if args.sizes is None:
             logging.fatal("no internal layers are specified")
@@ -66,10 +66,11 @@ if __name__ == "__main__":
             os.environ.get("SLURM_JOB_ID")
 
     print(model.summary())
-    
+
     dataset = Slice_Dataset_2D(
         "/data/mguevaral/crop_bbox", img_size, num_classes=num_classes)
-    train_generator, class_weights = dataset.get_dataset_generator(batch_size=batch_size)
+    train_generator, class_weights = dataset.get_dataset_generator(
+        batch_size=batch_size)
     test_generator, _ = dataset.get_dataset_generator(training=False)
 
     callbacks = [
@@ -115,23 +116,23 @@ if __name__ == "__main__":
     model.save(
         "/home/mguevaral/jpedro/phenotype-classifier/old_2d/checkpoints/" + model_name)
 
-    # Predict
-    y_prediction = model.predict(dataset.x_test)
+    # # Predict
+    # y_prediction = model.predict(test_generator)
 
     # Create confusion matrix and normalizes it over predicted (columns)
-    cf_matrix = confusion_matrix(
-        dataset.y_test, y_prediction.argmax(axis=-1), normalize='pred')
-    print(cf_matrix)
-    ax = sn.heatmap(cf_matrix, annot=True, cmap='Blues')
+    # cf_matrix = confusion_matrix(
+    #     dataset.y_test, y_prediction.argmax(axis=-1), normalize='pred')
+    # print(cf_matrix)
+    # ax = sn.heatmap(cf_matrix, annot=True, cmap='Blues')
 
-    ax.set_title('Confusion Matrix with labels\n\n')
-    ax.set_xlabel('\nPredicted Values')
-    ax.set_ylabel('Actual Values ')
+    # ax.set_title('Confusion Matrix with labels\n\n')
+    # ax.set_xlabel('\nPredicted Values')
+    # ax.set_ylabel('Actual Values ')
 
-    ## Ticket labels - List must be in alphabetical order
-    ax.xaxis.set_ticklabels(['Other', 'Luminal A'])
-    ax.yaxis.set_ticklabels(['Other', 'Luminal A'])
+    # ## Ticket labels - List must be in alphabetical order
+    # ax.xaxis.set_ticklabels(['Other', 'Luminal A'])
+    # ax.yaxis.set_ticklabels(['Other', 'Luminal A'])
 
-    ## Display the visualization of the Confusion Matrix.
-    plt.savefig(
-        '/home/mguevaral/jpedro/phenotype-classifier/old_2d/logs/' + model_name + '/cf_matrix.png')
+    # ## Display the visualization of the Confusion Matrix.
+    # plt.savefig(
+    #     '/home/mguevaral/jpedro/phenotype-classifier/old_2d/logs/' + model_name + '/cf_matrix.png')
