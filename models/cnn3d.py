@@ -1,4 +1,5 @@
 import keras
+import visualkeras
 from keras import layers
 
 
@@ -31,3 +32,9 @@ class CNN3D:
 
     def __get_model__(self):
         return self.model
+
+
+if __name__ == "__main__":
+    model = CNN3D()
+    visualkeras.layered_view(
+        model.__get_model__(), legend=True, draw_volume=False, spacing=30, to_file='output.png')

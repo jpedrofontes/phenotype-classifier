@@ -26,9 +26,9 @@ if __name__ == "__main__":
     batch_size = 2
     num_epochs = 1000
 
-    dataset = Dataset_3D("/data/mguevaral/crop_bbox/", crop_size=input_size)
+    dataset = Dataset_3D("/data/mguevaral/jpedro/ae_x_hat", crop_size=input_size)
     train_generator = DataGenerator(
-        "/data/mguevaral/crop_bbox/",
+        "/data/mguevaral/jpedro/ae_x_hat",
         dataset=dataset,
         stage="train",
         dim=input_size,
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         positive_class=args.phenotype,
     )
     test_generator = DataGenerator(
-        "/data/mguevaral/crop_bbox/",
+        "/data/mguevaral/jpedro/ae_x_hat",
         dataset=dataset,
         stage="test",
         dim=input_size,
@@ -44,24 +44,24 @@ if __name__ == "__main__":
         positive_class=args.phenotype,
     )
 
-    # model = CNN3D(input_size[0], input_size[1], input_size[2]).__get_model__()
-    # model_name = (
-    #     "CNN_3D." +
-    #     os.environ.get("SLURM_JOB_ID") + "." + phenotypes[args.phenotype]
-    # )
-    model = Resnet3DBuilder.build_resnet_50(
-        (input_size[0], input_size[1], input_size[2], 1), 1)
+    model = CNN3D(input_size[0], input_size[1], input_size[2]).__get_model__()
     model_name = (
-        "Resnet_3D." +
+        "CNN_3D." +
         os.environ.get("SLURM_JOB_ID") + "." + phenotypes[args.phenotype]
     )
+    # model = Resnet3DBuilder.build_resnet_50(
+    #     (input_size[0], input_size[1], input_size[2], 1), 1)
+    # model_name = (
+    #     "Resnet_3D." +
+    #     os.environ.get("SLURM_JOB_ID") + "." + phenotypes[args.phenotype]
+    # )
     print(model_name)
     callbacks = [
         tf.keras.callbacks.EarlyStopping(patience=50),
         tf.keras.callbacks.ModelCheckpoint(
             filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/"
             + model_name
-            + "/weights.h5",
+            + "/weights.keras",
             save_best_only=True,
         ),
         tf.keras.callbacks.TensorBoard(

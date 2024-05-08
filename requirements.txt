@@ -1,9 +1,10 @@
 keras-resnet3d @ git+https://github.com/JihongJu/keras-resnet3d.git@6e3a5c8b50f34d5e62193efa3fad88517c012707
+matplotlib
 numpy
 opencv-contrib-python
 pandas
 Pillow
 scikit-learn
-sklearn
 tensorflow
 tqdm
+visualkeras

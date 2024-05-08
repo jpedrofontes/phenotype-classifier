@@ -5,7 +5,6 @@ import numpy as np
 import tensorflow as tf
 from PIL import Image
 from scipy import ndimage
-import visualkeras
 
 from models.cnn3d import CNN3D
 
@@ -16,7 +15,7 @@ input_size = (64, 128, 128)
 def load_model(weights_filepath):
     'Define the function to load the model weights'
     # Create an instance of the CNN3D class to build the model
-    model = CNN3D(input_size[0], input_size[1], input_size[2]).__get_model__()
+    model = CNN3D(depth=input_size[0], width=input_size[1], height=input_size[2]).__get_model__()
     # Load the weights from the specified filepath
     model.load_weights(weights_filepath)
     initial_learning_rate = 0.0001
@@ -46,6 +45,7 @@ def make_prediction(model, image_filepath):
     images = process_scan(image_filepath)
     # Convert the images to a numpy array
     images = tf.cast(images, dtype=tf.float32)
+    print(images.shape)
     # images = tf.expand_dims(images, axis=-1)
     # Use the model to make a prediction on the input images
     prediction = model.predict(images)
@@ -70,7 +70,7 @@ def read_from_folder(image_folder):
     for img_path in os.listdir(image_folder):
         # Read the image
         img = Image.open(os.path.join(image_folder, img_path))  # .convert('RGB')
-        img = img.resize((input_size[0], input_size[1]))
+        img = img.resize((input_size[1], input_size[2]))
         img = np.array(img)
         # Add to volume
         volume.append(img)

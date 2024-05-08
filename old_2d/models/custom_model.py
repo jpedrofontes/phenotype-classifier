@@ -1,11 +1,13 @@
 import tensorflow as tf
+import visualkeras
+
 
 class CustomModel:
     def __init__(self, sizes, input_shape, num_classes):
         self._sizes = sizes
         self._input_shape = input_shape
         self._num_classes = num_classes
-        
+
     def make_model(self):
         inputs = tf.keras.Input(shape=self._input_shape)
 
@@ -50,7 +52,13 @@ class CustomModel:
         else:
             activation = "softmax"
             units = self._num_classes
-        
+
         x = tf.keras.layers.Dropout(0.5)(x)
         outputs = tf.keras.layers.Dense(units, activation=activation)(x)
         return tf.keras.Model(inputs, outputs)
+
+
+if __name__ == "__main__":
+    model = CustomModel([512, 256, 128, 64], (224, 224, 3), 1)
+    visualkeras.layered_view(
+        model.make_model(), legend=True, draw_volume=False, spacing=30, to_file='output.png')
