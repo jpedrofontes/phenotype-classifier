@@ -7,8 +7,8 @@ from resnet3d import Resnet3DBuilder
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import StratifiedKFold
 
-from load_dataset.dataset_3d import Dataset_3D
-from load_dataset.generator_3d import DataGenerator
+from datasets.dataset_3d import Dataset_3D
+from datasets.generator_3d import DataGenerator
 from models.cnn3d import CNN3D
 
 phenotypes = {0: "Luminal_A", 1: "Luminal_B",

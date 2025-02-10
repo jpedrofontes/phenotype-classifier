@@ -135,3 +135,5 @@ logs/
 checkpoints/
 
 .vscode
+tests/
+hyperband/

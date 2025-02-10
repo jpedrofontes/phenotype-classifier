@@ -113,18 +113,29 @@ if __name__ == "__main__":
     model_name = sys.argv[1]
     weights_filepath = os.path.join(
         "/home/mguevaral/jpedro/phenotype-classifier/checkpoints", model_name, "weights.h5")
+
     # Load the model from the specified filepath
     model = load_model(weights_filepath)
     print(model.summary())
-    # visualkeras.layered_view(model, to_file='output.png', legend=True)
+
     # Get the image filepath from the command line arguments
     image_filepath = sys.argv[2]
+
+    if not os.path.isdir(image_filepath):
+        images = [image_filepath]
+    else:
+        images = [os.path.join(image_filepath, img) for img in os.listdir(image_filepath)]
+
     # Make a prediction on the image using the loaded model
-    prediction = make_prediction(model, image_filepath)
-    print(f"Prediction: {prediction}")
+    for img in images:
+        prediction = make_prediction(model, img)
+        print(f"Prediction: {prediction}")
+
     # Get the names of the metrics
     metric_names = [name.replace("val_", "") for name in model.metrics_names]
+
     # Print the final metrics in a readable format
     print("Model:", model_name)
+
     for i in range(len(prediction)):
         print(f"{metric_names[i]}: {prediction[i]}")

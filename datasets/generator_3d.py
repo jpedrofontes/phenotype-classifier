@@ -1,31 +1,52 @@
 import sys
 
-import keras
+import tensorflow as tf
 import numpy as np
 
-from load_dataset.dataset_3d import Dataset_3D
+from datasets.dataset_3d import Dataset_3D
 
 
-class DataGenerator(keras.utils.Sequence):
-    def __init__(self, path, dataset=None, indices=None, stage="train", batch_size=32, dim=(64, 128, 128), positive_class=0, shuffle=True):
+class DataGenerator(tf.keras.utils.Sequence):
+
+    def __init__(
+        self,
+        path,
+        dataset=None,
+        indices=None,
+        stage="train",
+        batch_size=32,
+        dim=(64, 128, 128),
+        positive_class=0,
+        shuffle=True,
+        autoencoder=False,
+    ):
         self.dim = dim
         self.batch_size = batch_size
         self.path = path
+        
         if dataset is None or not isinstance(dataset, Dataset_3D):
             self.dataset = Dataset_3D(path, crop_size=dim)
         else:
             self.dataset = dataset
+            
         self.positive_class = positive_class
+        
         if indices is None:
             self.volumes = list(self.dataset.volumes.keys())[0:int(0.9*len(self.dataset.volumes))] if stage == "train" else list(
                 self.dataset.volumes.keys())[int(0.9*len(self.dataset.volumes)):len(self.dataset.volumes)]
         else:
             all_volumes = list(self.dataset.volumes.keys())
             self.volumes = [all_volumes[i] for i in indices]
+            
         self.list_IDs = [x for x in range(len(self.volumes))]
         self.shuffle = shuffle
+        self.autoencoder = autoencoder
+        self.transformations = None  # Initialize transformations as None
         self.__class_weights()
         self.on_epoch_end()
+
+    def set_transformations(self, transformations):
+        self.transformations = transformations
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -40,7 +61,10 @@ class DataGenerator(keras.utils.Sequence):
         # Generate data using the __data_generation() method
         X, y = self.__data_generation(list_IDs_temp)
         # Return the data
-        return X, y
+        if self.autoencoder:
+            return X, y, X
+        else:
+            return X, y
 
     def on_epoch_end(self):
         'Updates indexes after each epoch'
@@ -55,13 +79,24 @@ class DataGenerator(keras.utils.Sequence):
         # Initialization
         X = np.empty((self.batch_size, *self.dim))
         y = np.empty((self.batch_size), dtype=int)
+        
         # Generate data
         for i, ID in enumerate(list_IDs_temp):
             # Store sample
-            X[i, ] = self.dataset.process_scan(self.volumes[ID])
+            volume_info = self.dataset.volumes[self.volumes[ID]]
+            transformations = volume_info.get("transformations", None)
+            X[i, ] = self.dataset.process_scan(self.volumes[ID], transformations)
             # Store class
             phenotype = self.dataset.volumes[self.volumes[ID]]["phenotype"]
-            y[i] = 1 if phenotype == self.positive_class else 0
+            
+            if self.positive_class is not None:
+                y[i] = 1 if phenotype == self.positive_class else 0
+            else:
+                y[i] = phenotype
+
+        assert len(X) > 0, "Training data (X) is empty in generator"
+        assert len(y) > 0, "Training labels (y) are empty in generator"
+
         return X, y
 
     def __class_weights(self):
