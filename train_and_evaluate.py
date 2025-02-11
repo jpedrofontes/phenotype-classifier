@@ -7,6 +7,18 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from imblearn.over_sampling import ADASYN
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard 
+from tensorflow.keras.metrics import ( 
+    AUC,
+    FalseNegatives,
+    FalsePositives,
+    TrueNegatives,
+    TruePositives,
+    Precision,
+    Recall,
+)
+from tensorflow.keras.optimizers import Adam 
+from tensorflow.keras.optimizers.schedules import ExponentialDecay 
 from resnet3d import Resnet3DBuilder
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import (
@@ -107,22 +119,20 @@ def get_callbacks(is_tuner=True, model_name=""):
             - TensorBoard: Logs training metrics for visualization in TensorBoard.
     """
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(
-            monitor="val_loss", patience=10, restore_best_weights=True
-        ),
+        EarlyStopping(monitor="val_loss", patience=10, restore_best_weights=True),
     ]
 
     if not is_tuner:
         callbacks.append(
             [
-                tf.keras.callbacks.ModelCheckpoint(
+                ModelCheckpoint(
                     filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/"
                     + model_name
                     + "/weights.keras",
                     monitor="val_loss",
                     save_best_only=True,
                 ),
-                tf.keras.callbacks.TensorBoard(
+                TensorBoard(
                     log_dir="/home/mguevaral/jpedro/phenotype-classifier/logs/"
                     + model_name
                 ),
@@ -140,7 +150,7 @@ def build_autoencoder_model(hp: kt.HyperParameters) -> AutoEncoder3D:
         hp (HyperParameters): Hyperparameters object containing the search space for model tuning.
 
     Returns:
-        tuple: A tuple containing the compiled autoencoder model and the encoder model.
+        AutoEncoder3D: The autoencoder model.
     """
     input_size = (64, 128, 128)
 
@@ -149,8 +159,12 @@ def build_autoencoder_model(hp: kt.HyperParameters) -> AutoEncoder3D:
         "64_128_256_512": [64, 128, 256, 512],
         "32_64_128_256": [32, 64, 128, 256],
         "16_32_64_128": [16, 32, 64, 128],
-        "8_16_32_64": [8, 16, 32, 64],
         "128_256_512_1024": [128, 256, 512, 1024],
+        "64_128_256": [64, 128, 256],
+        "32_64_128": [32, 64, 128],
+        "128_256_512": [128, 256, 512],
+        "64_128": [64, 128],
+        "32_64": [32, 64],
     }
     filters_choice = hp.Choice(
         "filters",
@@ -178,8 +192,8 @@ def build_autoencoder_model(hp: kt.HyperParameters) -> AutoEncoder3D:
 
     autoencoder.compile(
         loss="mse",
-        optimizer=tf.keras.optimizers.Adam(
-            learning_rate=tf.keras.optimizers.schedules.ExponentialDecay(
+        optimizer=Adam(
+            learning_rate=ExponentialDecay(
                 learning_rate, decay_steps=10000, decay_rate=0.9, staircase=True
             )
         ),
@@ -188,12 +202,13 @@ def build_autoencoder_model(hp: kt.HyperParameters) -> AutoEncoder3D:
     return autoencoder
 
 
-def train_autoencoder(input_size, num_epochs, notrain, tune):
+def train_autoencoder(input_size, batch_size, num_epochs, notrain, tune):
     """
     Trains an autoencoder model on the given dataset.
 
     Parameters:
     input_size (tuple): The dimensions of the input data (depth, width, height).
+    batch_size (int): The number of samples per batch.
     num_epochs (int): The number of epochs to train the model.
     notrain (bool): If True, the model will not be trained.
     tune (bool): If True, hyperparameter tuning will be performed using Keras Tuner.
@@ -203,7 +218,7 @@ def train_autoencoder(input_size, num_epochs, notrain, tune):
 
     The function performs the following steps:
     1. Loads the dataset using the specified input size.
-    2. If tuning is enabled, performs hyperparameter tuning using Keras Tuner's Hyperband.
+    2. If tuning is enabled, performs hyperparameter tuning using Keras Tuner's RandomSearch.
     3. Builds the autoencoder model.
     4. If notrain is False, trains the model using the training dataset.
     5. Predicts latent space values for the training dataset and saves them to a CSV file.
@@ -211,21 +226,20 @@ def train_autoencoder(input_size, num_epochs, notrain, tune):
     train_generator, test_generator = load_dataset(input_size, autoencoder=True)
 
     if tune:
-        tuner = kt.Hyperband(
+        tuner = kt.RandomSearch(
             build_autoencoder_model,
             objective="val_loss",
-            max_epochs=50,
-            factor=3,
-            directory="/home/mguevaral/jpedro/phenotype-classifier/hyperband/"
-            + os.environ.get("SLURM_JOB_ID"),
-            project_name="autoencoder_tuning",
+            max_trials=150, 
+            directory="/home/mguevaral/jpedro/phenotype-classifier/keras-tuner/",
+            project_name=os.environ.get("SLURM_JOB_ID"),
         )
 
         tuner.search(
             train_generator,
+            validation_data=test_generator,
+            batch_size=batch_size,
             epochs=num_epochs,
             verbose=2,
-            validation_data=test_generator,
             callbacks=get_callbacks(is_tuner=True),
         )
 
@@ -245,8 +259,8 @@ def train_autoencoder(input_size, num_epochs, notrain, tune):
         model_name = "AutoEncoder3D." + os.environ.get("SLURM_JOB_ID")
         autoencoder.compile(
             loss="mse",
-            optimizer=tf.keras.optimizers.Adam(
-                learning_rate=tf.keras.optimizers.schedules.ExponentialDecay(
+            optimizer=Adam(
+                learning_rate=ExponentialDecay(
                     0.00001, decay_steps=10000, decay_rate=0.9, staircase=True
                 ),
             ),
@@ -255,6 +269,7 @@ def train_autoencoder(input_size, num_epochs, notrain, tune):
         if not notrain:
             autoencoder.fit(
                 train_generator,
+                batch_size=batch_size,
                 epochs=num_epochs,
                 verbose=2,
                 validation_data=test_generator,
@@ -317,19 +332,19 @@ def train_model(input_size, batch_size, num_epochs, phenotype, notrain, model_ty
 
     model.compile(
         loss="binary_crossentropy",
-        optimizer=tf.keras.optimizers.Adam(
-            learning_rate=tf.keras.optimizers.schedules.ExponentialDecay(
+        optimizer=Adam(
+            learning_rate=ExponentialDecay(
                 0.00001, decay_steps=10000, decay_rate=0.9, staircase=True
             ),
         ),
         metrics=[
-            tf.keras.metrics.FalseNegatives(name="fn"),
-            tf.keras.metrics.FalsePositives(name="fp"),
-            tf.keras.metrics.TrueNegatives(name="tn"),
-            tf.keras.metrics.TruePositives(name="tp"),
-            tf.keras.metrics.Precision(name="precision"),
-            tf.keras.metrics.Recall(name="recall"),
-            tf.keras.metrics.AUC(name="auc"),
+            FalseNegatives(name="fn"),
+            FalsePositives(name="fp"),
+            TrueNegatives(name="tn"),
+            TruePositives(name="tp"),
+            Precision(name="precision"),
+            Recall(name="recall"),
+            AUC(name="auc"),
         ],
     )
     class_weight = {
@@ -489,7 +504,7 @@ if __name__ == "__main__":
     setup_gpu()
 
     if args.autoencoder:
-        train_autoencoder(input_size, num_epochs, args.notrain, args.tune)
+        train_autoencoder(input_size, batch_size, num_epochs, args.notrain, args.tune)
     elif args.svm:
         train_svm(args.phenotype)
     elif args.resnet:

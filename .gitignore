@@ -136,4 +136,4 @@ checkpoints/
 
 .vscode
 tests/
-hyperband/
+keras-tuner/
