@@ -43,6 +43,7 @@ phenotypes = {0: "Luminal_A", 1: "Luminal_B", 2: "HER2_Enriched", 3: "Triple_Neg
 
 # Set random seeds for reproducibility
 random_seed = 42
+slurm_job_id = os.environ.get("SLURM_JOB_ID")
 np.random.seed(random_seed)
 random.seed(random_seed)
 tf.random.set_seed(random_seed)
@@ -123,17 +124,17 @@ def get_callbacks(is_tuner=True, model_name=""):
     ]
 
     if not is_tuner:
-        callbacks.append(
+        callbacks.extend(
             [
                 ModelCheckpoint(
-                    filepath="/home/mguevaral/jpedro/phenotype-classifier/checkpoints/"
+                    filepath=f"/data/mguevaral/jpedro/jobs/pheno_tr.{slurm_job_id}/checkpoints/"
                     + model_name
                     + "/weights.keras",
                     monitor="val_loss",
                     save_best_only=True,
                 ),
                 TensorBoard(
-                    log_dir="/home/mguevaral/jpedro/phenotype-classifier/logs/"
+                    log_dir=f"/data/mguevaral/jpedro/jobs/pheno_tr.{slurm_job_id}/logs/"
                     + model_name
                 ),
             ]
@@ -228,10 +229,10 @@ def train_autoencoder(input_size, batch_size, num_epochs, notrain, tune):
     if tune:
         tuner = kt.RandomSearch(
             build_autoencoder_model,
-            objective="val_loss",
-            max_trials=150, 
-            directory="/home/mguevaral/jpedro/phenotype-classifier/keras-tuner/",
-            project_name=os.environ.get("SLURM_JOB_ID"),
+            objective=kt.Objective("val_loss", direction="min"),
+            max_trials=150,
+            directory="/data/mguevaral/jpedro/keras-tuner/",
+            project_name=slurm_job_id,
         )
 
         tuner.search(
@@ -256,7 +257,7 @@ def train_autoencoder(input_size, batch_size, num_epochs, notrain, tune):
             filters=[64, 128, 256, 512],
             latent_space_size=256,
         )
-        model_name = "AutoEncoder3D." + os.environ.get("SLURM_JOB_ID")
+        model_name = f"AutoEncoder3D.{slurm_job_id}"
         autoencoder.compile(
             loss="mse",
             optimizer=Adam(
@@ -316,19 +317,12 @@ def train_model(input_size, batch_size, num_epochs, phenotype, notrain, model_ty
         model = CNN3D(
             depth=input_size[0], width=input_size[1], height=input_size[2]
         ).__get_model__()
-        model_name = (
-            "CNN_3D." + os.environ.get("SLURM_JOB_ID") + "." + phenotypes[phenotype]
-        )
+        model_name = "CNN_3D.{slurm_job_id}.{phenotypes[phenotype]}"
     elif model_type == "resnet":
         model = Resnet3DBuilder.build_resnet_50(
             (input_size[0], input_size[1], input_size[2], 1), 1
         )
-        model_name = (
-            "Resnet50_3D."
-            + os.environ.get("SLURM_JOB_ID")
-            + "."
-            + phenotypes[phenotype]
-        )
+        model_name = "Resnet50_3D.{slurm_job_id}.{phenotypes[phenotype]}"
 
     model.compile(
         loss="binary_crossentropy",

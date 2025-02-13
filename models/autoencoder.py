@@ -3,6 +3,7 @@ import visualkeras
 from tensorflow.keras import Model, Input
 from tensorflow.keras.layers import (
     Layer,
+    Activation,
     Conv3D,
     BatchNormalization,
     ReLU,

@@ -135,5 +135,6 @@ logs/
 checkpoints/
 
 .vscode
-tests/
+tests/results/
+tests/Patient_255/
 keras-tuner/
