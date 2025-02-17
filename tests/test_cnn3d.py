@@ -1,5 +1,4 @@
 import pytest
-import tensorflow as tf
 from models.cnn3d import CNN3D
 
 @pytest.fixture

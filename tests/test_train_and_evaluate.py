@@ -1,4 +1,3 @@
-import os
 import pytest
 from unittest import mock
 
@@ -32,7 +31,7 @@ def test_get_callbacks_is_tuner_false():
         assert callbacks[0].restore_best_weights
 
         assert isinstance(callbacks[1], ModelCheckpoint)
-        assert callbacks[1].filepath == f"/data/mguevaral/jpedro/jobs/pheno_tr.12345/checkpoints/{model_name}/weights.keras"
+        assert callbacks[1].filepath == f"/data/mguevaral/jpedro/jobs/pheno_tr.12345/checkpoints/{model_name}/weights.h5"
         assert callbacks[1].monitor == "val_loss"
         assert callbacks[1].save_best_only
 

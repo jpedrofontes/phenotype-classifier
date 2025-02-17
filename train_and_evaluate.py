@@ -124,18 +124,20 @@ def get_callbacks(is_tuner=True, model_name=""):
     ]
 
     if not is_tuner:
+        checkpoint_dir = f"/data/mguevaral/jpedro/jobs/pheno_tr.{slurm_job_id}/checkpoints/" 
+        log_dir=f"/data/mguevaral/jpedro/jobs/pheno_tr.{slurm_job_id}/logs/" 
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        os.makedirs(log_dir, exist_ok=True)
         callbacks.extend(
             [
                 ModelCheckpoint(
-                    filepath=f"/data/mguevaral/jpedro/jobs/pheno_tr.{slurm_job_id}/checkpoints/"
-                    + model_name
-                    + "/weights.keras",
+                    filepath=checkpoint_dir + "/weights.h5",
                     monitor="val_loss",
                     save_best_only=True,
+                    save_weights_only=True,
                 ),
                 TensorBoard(
-                    log_dir=f"/data/mguevaral/jpedro/jobs/pheno_tr.{slurm_job_id}/logs/"
-                    + model_name
+                    log_dir=log_dir
                 ),
             ]
         )
