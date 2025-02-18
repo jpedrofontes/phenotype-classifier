@@ -31,12 +31,12 @@ def test_get_callbacks_is_tuner_false():
         assert callbacks[0].restore_best_weights
 
         assert isinstance(callbacks[1], ModelCheckpoint)
-        assert callbacks[1].filepath == f"/data/mguevaral/jpedro/jobs/pheno_tr.12345/checkpoints/{model_name}/weights.h5"
+        assert callbacks[1].filepath == f"/data/mguevaral/jpedro/jobs/pheno_tr.12345/checkpoints/weights.h5"
         assert callbacks[1].monitor == "val_loss"
         assert callbacks[1].save_best_only
 
         assert isinstance(callbacks[2], TensorBoard)
-        assert callbacks[2].log_dir == f"/data/mguevaral/jpedro/jobs/pheno_tr.12345/logs/{model_name}"
+        assert callbacks[2].log_dir == f"/data/mguevaral/jpedro/jobs/pheno_tr.12345/logs"
 
 def test_get_callbacks_custom_patience():
     model_name = "test_model"

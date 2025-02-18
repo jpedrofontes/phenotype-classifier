@@ -124,8 +124,8 @@ def get_callbacks(is_tuner=True, model_name=""):
     ]
 
     if not is_tuner:
-        checkpoint_dir = f"/data/mguevaral/jpedro/jobs/pheno_tr.{slurm_job_id}/checkpoints/" 
-        log_dir=f"/data/mguevaral/jpedro/jobs/pheno_tr.{slurm_job_id}/logs/" 
+        checkpoint_dir = f"/data/mguevaral/jpedro/jobs/pheno_tr.{slurm_job_id}/checkpoints" 
+        log_dir=f"/data/mguevaral/jpedro/jobs/pheno_tr.{slurm_job_id}/logs" 
         os.makedirs(checkpoint_dir, exist_ok=True)
         os.makedirs(log_dir, exist_ok=True)
         callbacks.extend(
