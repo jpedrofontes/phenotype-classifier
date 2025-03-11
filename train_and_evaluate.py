@@ -172,6 +172,70 @@ def get_callbacks(is_tuner=True, model_name=None, checkpoint_dir=None, log_dir=N
     return callbacks
 
 
+def plot_roc_curve(y_true, y_pred, img_dir):
+    fpr, tpr, _ = roc_curve(y_true, y_pred)
+    roc_auc = auc(fpr, tpr)
+    plt.figure()
+    plt.plot(fpr, tpr, color="blue", lw=2, label=f"ROC curve (AUC = {roc_auc:.4f})")
+    plt.plot([0, 1], [0, 1], color="black", lw=2, label="No Skill", linestyle="--")
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.legend(loc="lower right")
+    plt.savefig(os.path.join(img_dir, "roc_curve.png"))
+    plt.close()
+
+
+def calculate_metrics(y_true, y_pred):
+    print(f"Accuracy: {accuracy_score(y_true, y_pred > 0.5):.4f}", flush=True)
+    print(f"Precision: {precision_score(y_true, y_pred > 0.5):.4f}", flush=True)
+    print(f"Recall: {recall_score(y_true, y_pred > 0.5):.4f}", flush=True)
+    print(f"AUC: {roc_auc_score(y_true, y_pred):.4f}", flush=True)
+    print(f"F1 Score: {f1_score(y_true, y_pred > 0.5):.4f}", flush=True)
+
+    conf_matrix = confusion_matrix(y_true, y_pred > 0.5)
+    conf_matrix_df = pd.DataFrame(
+        conf_matrix, index=np.unique(y_true), columns=np.unique(y_true)
+    )
+    
+    print("Confusion Matrix:", flush=True)
+    print(conf_matrix_df, flush=True)
+
+
+def calculate_binary_class_weights(y_train):
+    """
+    Calculate class weights for binary classification.
+
+    This function computes the weights for each class in a binary classification
+    problem to handle class imbalance. The weights are calculated based on the
+    inverse frequency of each class in the training data.
+
+    Parameters:
+    y_train (array-like): Array of shape (n_samples,) containing the class labels
+                          for the training data. Must contain exactly two unique
+                          classes.
+
+    Returns:
+    dict: A dictionary where keys are the class labels and values are the
+          corresponding class weights.
+
+    Raises:
+    AssertionError: If the number of unique classes in y_train is not equal to 2.
+    """
+    class_weights = {}
+    total_samples = len(y_train)
+    unique_classes = np.unique(y_train)
+
+    assert unique_classes.shape[0] == 2, "Only binary classification is supported"
+
+    for cls in unique_classes:
+        n_x = np.sum(y_train == cls)
+        class_weights[cls] = (1 / n_x) * (total_samples / 2)
+
+    return class_weights
+
+
 def build_autoencoder_model(hp: kt.HyperParameters) -> AutoEncoder3D:
     """
     Builds and compiles a 3D autoencoder model based on the given hyperparameters.
@@ -378,7 +442,11 @@ def train_model(input_size, batch_size, num_epochs, phenotype, notrain, model_ty
         1: train_generator.weight_for_1,
     }
 
-    if not notrain:
+    if notrain:
+        # We'll assume that the model has already been trained
+        model.load_weights(os.path.join(checkpoint_dir, "weights.h5"))
+    else:
+        # Train the model
         callbacks = get_callbacks(model_name=model_name, checkpoint_dir=checkpoint_dir, log_dir=log_dir)
         model.fit(
             train_generator,
@@ -389,10 +457,8 @@ def train_model(input_size, batch_size, num_epochs, phenotype, notrain, model_ty
             callbacks=callbacks,
             class_weight=class_weight,
         )
-    else:
-        model.load_weights(os.path.join(checkpoint_dir, "weights.h5"))
 
-    # Calculate evaluation metrics on the test set
+    # Build y_true and y_pred arrays for calculating metrics
     y_true = []
     y_pred = []
 
@@ -403,70 +469,13 @@ def train_model(input_size, batch_size, num_epochs, phenotype, notrain, model_ty
 
     y_true = np.array(y_true)
     y_pred = np.array(y_pred).ravel()
-
-    print(f"Accuracy: {accuracy_score(y_true, y_pred > 0.5):.4f}", flush=True)
-    print(f"Precision: {precision_score(y_true, y_pred > 0.5):.4f}", flush=True)
-    print(f"Recall: {recall_score(y_true, y_pred > 0.5):.4f}", flush=True)
-    print(f"AUC: {roc_auc_score(y_true, y_pred):.4f}", flush=True)
-    print(f"F1 Score: {f1_score(y_true, y_pred > 0.5):.4f}", flush=True)
-
-    conf_matrix = confusion_matrix(y_true, y_pred > 0.5)
-    conf_matrix_df = pd.DataFrame(
-        conf_matrix, index=np.unique(y_true), columns=np.unique(y_true)
-    )
     
-    print("Confusion Matrix:", flush=True)
-    print(conf_matrix_df, flush=True)
-
-    # Plot ROC curve after training, using the best model 
-    fpr, tpr, _ = roc_curve(y_true, y_pred)
-    roc_auc = auc(fpr, tpr)
-    plt.figure()
-    plt.plot(fpr, tpr, color="blue", lw=2, label=f"ROC curve (AUC = {roc_auc:.4f})")
-    plt.plot([0, 1], [0, 1], color="black", lw=2, label="No Skill", linestyle="--")
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.legend(loc="lower right")
-    plt.savefig(os.path.join(img_dir, "roc_curve.png"))
-    plt.close()
+    # Calculate metrics and plot ROC curve
+    calculate_metrics(y_true, y_pred)
+    plot_roc_curve(y_true, y_pred, img_dir)
 
 
-def calculate_binary_class_weights(y_train):
-    """
-    Calculate class weights for binary classification.
-
-    This function computes the weights for each class in a binary classification
-    problem to handle class imbalance. The weights are calculated based on the
-    inverse frequency of each class in the training data.
-
-    Parameters:
-    y_train (array-like): Array of shape (n_samples,) containing the class labels
-                          for the training data. Must contain exactly two unique
-                          classes.
-
-    Returns:
-    dict: A dictionary where keys are the class labels and values are the
-          corresponding class weights.
-
-    Raises:
-    AssertionError: If the number of unique classes in y_train is not equal to 2.
-    """
-    class_weights = {}
-    total_samples = len(y_train)
-    unique_classes = np.unique(y_train)
-
-    assert unique_classes.shape[0] == 2, "Only binary classification is supported"
-
-    for cls in unique_classes:
-        n_x = np.sum(y_train == cls)
-        class_weights[cls] = (1 / n_x) * (total_samples / 2)
-
-    return class_weights
-
-
-def train_svm(phenotype):
+def train_svm(phenotype, img_dir):
     """
     Train a Support Vector Machine (SVM) classifier for a given phenotype.
 
@@ -539,33 +548,9 @@ def train_svm(phenotype):
     classifier = grid_search.best_estimator_
     y_pred = classifier.predict(X_test)
     
-    print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}", flush=True)
-    print(f"Precision: {precision_score(y_test, y_pred):.4f}", flush=True)
-    print(f"Recall: {recall_score(y_test, y_pred):.4f}", flush=True)
-    print(f"AUC: {roc_auc_score(y_test, y_pred):.4f}", flush=True)
-    print(f"F1 Score: {f1_score(y_test, y_pred):.4f}", flush=True)
-
-    conf_matrix = confusion_matrix(y_test, y_pred)
-    conf_matrix_df = pd.DataFrame(
-        conf_matrix, index=np.unique(y_test), columns=np.unique(y_test)
-    )
-    
-    print("Confusion Matrix:", flush=True)
-    print(conf_matrix_df, flush=True)
-
-    # Plot ROC curve after training, using the best model 
-    fpr, tpr, _ = roc_curve(y_true, y_pred)
-    roc_auc = auc(fpr, tpr)
-    plt.figure()
-    plt.plot(fpr, tpr, color="blue", lw=2, label=f"ROC curve (AUC = {roc_auc:.4f})")
-    plt.plot([0, 1], [0, 1], color="black", lw=2, label="No Skill", linestyle="--")
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.legend(loc="lower right")
-    plt.savefig(os.path.join(img_dir, "roc_curve.png"))
-    plt.close()
+    # Calculate metrics and plot ROC curve
+    calculate_metrics(y_test, y_pred)
+    plot_roc_curve(y_test, y_pred, img_dir)
 
 
 if __name__ == "__main__":
@@ -586,7 +571,8 @@ if __name__ == "__main__":
         checkpoint_dir, log_dir, img_dir = create_directories()
         train_autoencoder(input_size, batch_size, num_epochs, args.notrain, args.tune, checkpoint_dir, log_dir)
     elif args.svm:
-        train_svm(args.phenotype)
+        _, _, img_dir = create_directories(f"{phenotypes[args.phenotype]}")
+        train_svm(args.phenotype, img_dir)
     elif args.resnet:
         checkpoint_dir, log_dir, img_dir = create_directories(f"{phenotypes[args.phenotype]}")
         train_model(
