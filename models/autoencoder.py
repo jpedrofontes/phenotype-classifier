@@ -24,12 +24,8 @@ class ResidualBlock(Layer):
         self.kernel_size = kernel_size
         self.transpose = transpose
         if self.transpose:
-            self.conv1 = Conv3DTranspose(
-                filters, kernel_size, padding="same"
-            )
-            self.conv2 = Conv3DTranspose(
-                filters, kernel_size, padding="same"
-            )
+            self.conv1 = Conv3DTranspose(filters, kernel_size, padding="same")
+            self.conv2 = Conv3DTranspose(filters, kernel_size, padding="same")
         else:
             self.conv1 = Conv3D(filters, kernel_size, padding="same")
             self.conv2 = Conv3D(filters, kernel_size, padding="same")
@@ -63,9 +59,7 @@ class AttentionBlock(Layer):
         self.filters = filters
         self.transpose = transpose
         if self.transpose:
-            self.conv = Conv3DTranspose(
-                filters, kernel_size=1, padding="same"
-            )
+            self.conv = Conv3DTranspose(filters, kernel_size=1, padding="same")
         else:
             self.conv = Conv3D(filters, kernel_size=1, padding="same")
         self.bn = BatchNormalization()
@@ -134,9 +128,7 @@ class AutoEncoder3D(Model):
         x = inputs
 
         for i in encoder_filters:
-            x = Conv3D(
-                filters=i, kernel_size=3, activation=None, padding="same"
-            )(x)
+            x = Conv3D(filters=i, kernel_size=3, activation=None, padding="same")(x)
             x = BatchNormalization()(x)
             x = ReLU()(x)
             x = MaxPool3D(pool_size=2, padding="same")(x)
@@ -146,14 +138,12 @@ class AutoEncoder3D(Model):
         # Latent space
         shape_before_flattening = x.shape[1:]
         x = Flatten()(x)
-        latent_space = Dense(
-            units=latent_space_size, activation="relu"
-        )(x)
+        latent_space = Dense(units=latent_space_size, activation="relu")(x)
 
         # Decoder
-        x = Dense(
-            units=tf.reduce_prod(shape_before_flattening), activation="relu"
-        )(latent_space)
+        x = Dense(units=tf.reduce_prod(shape_before_flattening), activation="relu")(
+            latent_space
+        )
         x = Reshape(shape_before_flattening)(x)
 
         for i in decoder_filters:
@@ -187,9 +177,8 @@ class AutoEncoder3D(Model):
 
 if __name__ == "__main__":
     autoencoder = AutoEncoder3D()
-    model = autoencoder.__get_model__()
     visualkeras.layered_view(
-        model[0],
+        autoencoder,
         legend=True,
         draw_volume=False,
         spacing=30,

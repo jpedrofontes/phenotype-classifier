@@ -1,4 +1,4 @@
-import os
-import sys
+from .cnn3d import CNN3D
+from .autoencoder import AutoEncoder3D
 
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+__all__ = ['CNN3D', 'AutoEncoder3D']

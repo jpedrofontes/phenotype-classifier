@@ -3,12 +3,13 @@ import os
 import random
 
 import keras_tuner as kt
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 from imblearn.over_sampling import ADASYN
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard 
-from tensorflow.keras.metrics import ( 
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
+from tensorflow.keras.metrics import (
     AUC,
     FalseNegatives,
     FalsePositives,
@@ -17,33 +18,28 @@ from tensorflow.keras.metrics import (
     Precision,
     Recall,
 )
-from tensorflow.keras.optimizers import Adam 
-from tensorflow.keras.optimizers.schedules import ExponentialDecay 
-from resnet3d import Resnet3DBuilder
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers.schedules import ExponentialDecay
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import (
     accuracy_score,
+    auc,
     confusion_matrix,
-    roc_auc_score,
     f1_score,
     precision_score,
     recall_score,
+    roc_auc_score,
+    roc_curve, 
 )
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
+from resnet3d import Resnet3DBuilder
 
-from datasets.csv_dataset import CSVDataGenerator
-from datasets.dataset_3d import Dataset_3D
-from datasets.generator_3d import DataGenerator
-from models.autoencoder import AutoEncoder3D
-from models.cnn3d import CNN3D
-
-
-phenotypes = {0: "Luminal_A", 1: "Luminal_B", 2: "HER2_Enriched", 3: "Triple_Negative"}
+from datasets import CSVDataGenerator, Dataset_3D, DataGenerator
+from models import AutoEncoder3D, CNN3D
+from settings import base_data_dir, batch_size, dataset_dir, input_size, job_id, num_epochs, phenotypes, random_seed
 
 # Set random seeds for reproducibility
-random_seed = 42
-slurm_job_id = os.environ.get("SLURM_JOB_ID")
 np.random.seed(random_seed)
 random.seed(random_seed)
 tf.random.set_seed(random_seed)
@@ -83,9 +79,9 @@ def load_dataset(input_size, phenotype=None, autoencoder=False):
     Returns:
         tuple: A tuple containing the train data generator and the test data generator.
     """
-    dataset = Dataset_3D("/data/mguevaral/crop_bbox/", crop_size=input_size)
+    dataset = Dataset_3D(dataset_dir, crop_size=input_size)
     train_generator = DataGenerator(
-        "/data/mguevaral/crop_bbox/",
+        dataset_dir,
         dataset=dataset,
         stage="train",
         dim=input_size,
@@ -94,7 +90,7 @@ def load_dataset(input_size, phenotype=None, autoencoder=False):
         autoencoder=autoencoder,
     )
     test_generator = DataGenerator(
-        "/data/mguevaral/crop_bbox/",
+        dataset_dir,
         dataset=dataset,
         stage="test",
         dim=input_size,
@@ -106,39 +102,70 @@ def load_dataset(input_size, phenotype=None, autoencoder=False):
     return train_generator, test_generator
 
 
-def get_callbacks(is_tuner=True, model_name=""):
+def create_directories(model_name=None):
+    """
+    Creates directories for saving model checkpoints, logs, and ROC curve images.
+
+    Args:
+        model_name (str, optional): The name of the model, used for creating specific directories.
+
+    Returns:
+        tuple: A tuple containing the checkpoint directory, log directory, and img directory paths.
+    """
+    if model_name:
+        base_dir = os.path.join(base_data_dir, "jobs", job_id, model_name)
+    else:
+        base_dir = os.path.join(base_data_dir, "jobs", job_id)
+
+    checkpoint_dir = os.path.join(base_dir, "checkpoints")
+    log_dir = os.path.join(base_dir, "logs")
+    img_dir = os.path.join(base_dir, "img")
+
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
+    os.makedirs(img_dir, exist_ok=True)
+
+    return checkpoint_dir, log_dir, img_dir
+
+
+def get_callbacks(is_tuner=True, model_name=None, checkpoint_dir=None, log_dir=None):
     """
     Generates a list of Keras callbacks for training a model.
 
     Args:
-        model_name (str): The name of the model, used for saving checkpoints and logs.
+        is_tuner (bool): Whether the callbacks are for hyperparameter tuning.
+        model_name (str, optional): The name of the model, used for saving checkpoints and logs.
+        checkpoint_dir (str, optional): Directory to save model checkpoints.
+        log_dir (str, optional): Directory to save TensorBoard logs.
 
     Returns:
         list: A list of Keras callbacks including EarlyStopping, ModelCheckpoint, and TensorBoard.
-            - EarlyStopping: Monitors validation loss and stops training when it stops improving.
-            - ModelCheckpoint: Saves the model weights to a specified filepath when the validation loss improves.
+            - EarlyStopping: Monitors validation loss or AUC and stops training when it stops improving.
+            - ModelCheckpoint: Saves the model weights to a specified filepath when the validation AUC improves.
             - TensorBoard: Logs training metrics for visualization in TensorBoard.
     """
+    if model_name:
+        monitor_metric = "val_auc"
+        mode = "max"
+    else:
+        monitor_metric = "val_loss"
+        mode = "min"
+
     callbacks = [
-        EarlyStopping(monitor="val_loss", patience=10, restore_best_weights=True),
+        EarlyStopping(monitor=monitor_metric, patience=50, restore_best_weights=True, mode=mode),
     ]
 
     if not is_tuner:
-        checkpoint_dir = f"/data/mguevaral/jpedro/jobs/pheno_tr.{slurm_job_id}/checkpoints" 
-        log_dir=f"/data/mguevaral/jpedro/jobs/pheno_tr.{slurm_job_id}/logs" 
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        os.makedirs(log_dir, exist_ok=True)
         callbacks.extend(
             [
-                ModelCheckpoint(
-                    filepath=checkpoint_dir + "/weights.h5",
-                    monitor="val_loss",
-                    save_best_only=True,
-                    save_weights_only=True,
-                ),
-                TensorBoard(
-                    log_dir=log_dir
-                ),
+            ModelCheckpoint(
+                filepath=os.path.join(checkpoint_dir, "weights.h5"),
+                monitor=monitor_metric,
+                save_best_only=True,
+                save_weights_only=True,
+                mode=mode,
+            ),
+            TensorBoard(log_dir=log_dir),
             ]
         )
 
@@ -205,7 +232,7 @@ def build_autoencoder_model(hp: kt.HyperParameters) -> AutoEncoder3D:
     return autoencoder
 
 
-def train_autoencoder(input_size, batch_size, num_epochs, notrain, tune):
+def train_autoencoder(input_size, batch_size, num_epochs, notrain, tune, checkpoint_dir, log_dir):
     """
     Trains an autoencoder model on the given dataset.
 
@@ -215,6 +242,8 @@ def train_autoencoder(input_size, batch_size, num_epochs, notrain, tune):
     num_epochs (int): The number of epochs to train the model.
     notrain (bool): If True, the model will not be trained.
     tune (bool): If True, hyperparameter tuning will be performed using Keras Tuner.
+    checkpoint_dir (str): Directory to save model checkpoints.
+    log_dir (str): Directory to save TensorBoard logs.
 
     Returns:
         None
@@ -233,23 +262,23 @@ def train_autoencoder(input_size, batch_size, num_epochs, notrain, tune):
             build_autoencoder_model,
             objective=kt.Objective("val_loss", direction="min"),
             max_trials=150,
-            directory="/data/mguevaral/jpedro/keras-tuner/",
-            project_name=slurm_job_id,
+            directory=f"{base_data_dir}/keras-tuner/",
+            project_name=job_id,
         )
-
+        callbacks = get_callbacks(is_tuner=True)
         tuner.search(
             train_generator,
             validation_data=test_generator,
             batch_size=batch_size,
             epochs=num_epochs,
             verbose=2,
-            callbacks=get_callbacks(is_tuner=True),
+            callbacks=callbacks,
         )
 
         best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
         print(f"Best hyperparameters: {best_hps.values}", flush=True)
 
-        model = tuner.hypermodel.build(best_hps)
+        model: AutoEncoder3D = tuner.hypermodel.build(best_hps)
         encoder = model.get_encoder()
     else:
         autoencoder = AutoEncoder3D(
@@ -259,7 +288,7 @@ def train_autoencoder(input_size, batch_size, num_epochs, notrain, tune):
             filters=[64, 128, 256, 512],
             latent_space_size=256,
         )
-        model_name = f"AutoEncoder3D.{slurm_job_id}"
+        model_name = f"AutoEncoder3D.{job_id}"
         autoencoder.compile(
             loss="mse",
             optimizer=Adam(
@@ -270,13 +299,14 @@ def train_autoencoder(input_size, batch_size, num_epochs, notrain, tune):
         )
 
         if not notrain:
+            callbacks = get_callbacks(is_tuner=False, checkpoint_dir=checkpoint_dir, log_dir=log_dir)
             autoencoder.fit(
                 train_generator,
                 batch_size=batch_size,
                 epochs=num_epochs,
                 verbose=2,
                 validation_data=test_generator,
-                callbacks=get_callbacks(is_tuner=False, model_name=model_name),
+                callbacks=callbacks,
             )
 
     # Predict latent space values for the training dataset
@@ -300,7 +330,7 @@ def train_autoencoder(input_size, batch_size, num_epochs, notrain, tune):
     )
 
 
-def train_model(input_size, batch_size, num_epochs, phenotype, notrain, model_type):
+def train_model(input_size, batch_size, num_epochs, phenotype, notrain, model_type, checkpoint_dir, log_dir, img_dir):
     """
     Trains a 3D CNN or ResNet model on the given phenotype dataset.
     Args:
@@ -310,22 +340,22 @@ def train_model(input_size, batch_size, num_epochs, phenotype, notrain, model_ty
         phenotype (str): The phenotype to classify.
         notrain (bool): If True, the model will not be trained.
         model_type (str): The type of model to train ('cnn' or 'resnet').
+        checkpoint_dir (str): Directory to save model checkpoints.
+        log_dir (str): Directory to save TensorBoard logs.
+        img_dir (str): Directory to save ROC curve images.
     Returns:
         None
     """
     train_generator, test_generator = load_dataset(input_size, phenotype)
 
     if model_type == "cnn":
-        model = CNN3D(
-            depth=input_size[0], width=input_size[1], height=input_size[2]
-        ).__get_model__()
-        model_name = "CNN_3D.{slurm_job_id}.{phenotypes[phenotype]}"
-    elif model_type == "resnet":
+        model = CNN3D(depth=input_size[0], width=input_size[1], height=input_size[2])
+    elif model_type == "resnet":        
         model = Resnet3DBuilder.build_resnet_50(
             (input_size[0], input_size[1], input_size[2], 1), 1
         )
-        model_name = "Resnet50_3D.{slurm_job_id}.{phenotypes[phenotype]}"
-
+        
+    model_name = f"{phenotypes[phenotype]}"
     model.compile(
         loss="binary_crossentropy",
         optimizer=Adam(
@@ -349,15 +379,58 @@ def train_model(input_size, batch_size, num_epochs, phenotype, notrain, model_ty
     }
 
     if not notrain:
+        callbacks = get_callbacks(model_name=model_name, checkpoint_dir=checkpoint_dir, log_dir=log_dir)
         model.fit(
             train_generator,
             batch_size=batch_size,
             epochs=num_epochs,
             validation_data=test_generator,
             verbose=2,
-            callbacks=get_callbacks(model_name),
+            callbacks=callbacks,
             class_weight=class_weight,
         )
+    else:
+        model.load_weights(os.path.join(checkpoint_dir, "weights.h5"))
+
+    # Calculate evaluation metrics on the test set
+    y_true = []
+    y_pred = []
+
+    for i in range(len(test_generator)):
+        X_batch, y_batch = test_generator[i]
+        y_true.extend(y_batch)
+        y_pred.extend(model.predict(X_batch))
+
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred).ravel()
+
+    print(f"Accuracy: {accuracy_score(y_true, y_pred > 0.5):.4f}", flush=True)
+    print(f"Precision: {precision_score(y_true, y_pred > 0.5):.4f}", flush=True)
+    print(f"Recall: {recall_score(y_true, y_pred > 0.5):.4f}", flush=True)
+    print(f"AUC: {roc_auc_score(y_true, y_pred):.4f}", flush=True)
+    print(f"F1 Score: {f1_score(y_true, y_pred > 0.5):.4f}", flush=True)
+
+    conf_matrix = confusion_matrix(y_true, y_pred > 0.5)
+    conf_matrix_df = pd.DataFrame(
+        conf_matrix, index=np.unique(y_true), columns=np.unique(y_true)
+    )
+    
+    print("Confusion Matrix:", flush=True)
+    print(conf_matrix_df, flush=True)
+
+    # Plot ROC curve after training, using the best model 
+    fpr, tpr, _ = roc_curve(y_true, y_pred)
+    roc_auc = auc(fpr, tpr)
+    plt.figure()
+    plt.plot(fpr, tpr, color="blue", lw=2, label=f"ROC curve (AUC = {roc_auc:.4f})")
+    plt.plot([0, 1], [0, 1], color="black", lw=2, label="No Skill", linestyle="--")
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.legend(loc="lower right")
+    plt.savefig(os.path.join(img_dir, "roc_curve.png"))
+    plt.close()
 
 
 def calculate_binary_class_weights(y_train):
@@ -464,8 +537,8 @@ def train_svm(phenotype):
 
     # Use the best estimator for predictions and evaluations
     classifier = grid_search.best_estimator_
-
     y_pred = classifier.predict(X_test)
+    
     print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}", flush=True)
     print(f"Precision: {precision_score(y_test, y_pred):.4f}", flush=True)
     print(f"Recall: {recall_score(y_test, y_pred):.4f}", flush=True)
@@ -476,8 +549,23 @@ def train_svm(phenotype):
     conf_matrix_df = pd.DataFrame(
         conf_matrix, index=np.unique(y_test), columns=np.unique(y_test)
     )
+    
     print("Confusion Matrix:", flush=True)
     print(conf_matrix_df, flush=True)
+
+    # Plot ROC curve after training, using the best model 
+    fpr, tpr, _ = roc_curve(y_true, y_pred)
+    roc_auc = auc(fpr, tpr)
+    plt.figure()
+    plt.plot(fpr, tpr, color="blue", lw=2, label=f"ROC curve (AUC = {roc_auc:.4f})")
+    plt.plot([0, 1], [0, 1], color="black", lw=2, label="No Skill", linestyle="--")
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.legend(loc="lower right")
+    plt.savefig(os.path.join(img_dir, "roc_curve.png"))
+    plt.close()
 
 
 if __name__ == "__main__":
@@ -492,22 +580,20 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--tune", action="store_true")
     args = parser.parse_args()
 
-    np.random.seed(123)
-    input_size = (64, 128, 128)
-    batch_size = 2
-    num_epochs = 1000
-
     setup_gpu()
 
     if args.autoencoder:
-        train_autoencoder(input_size, batch_size, num_epochs, args.notrain, args.tune)
+        checkpoint_dir, log_dir, img_dir = create_directories()
+        train_autoencoder(input_size, batch_size, num_epochs, args.notrain, args.tune, checkpoint_dir, log_dir)
     elif args.svm:
         train_svm(args.phenotype)
     elif args.resnet:
+        checkpoint_dir, log_dir, img_dir = create_directories(f"{phenotypes[args.phenotype]}")
         train_model(
-            input_size, batch_size, num_epochs, args.phenotype, args.notrain, "resnet"
+            input_size, batch_size, num_epochs, args.phenotype, args.notrain, "resnet", checkpoint_dir, log_dir, img_dir
         )
     else:
+        checkpoint_dir, log_dir, img_dir = create_directories(f"{phenotypes[args.phenotype]}")
         train_model(
-            input_size, batch_size, num_epochs, args.phenotype, args.notrain, "cnn"
+            input_size, batch_size, num_epochs, args.phenotype, args.notrain, "cnn", checkpoint_dir, log_dir, img_dir
         )

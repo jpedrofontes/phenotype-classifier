@@ -19,14 +19,26 @@ module load cuDNN
 
 TRAIN_AUTOENCODER=false
 TUNE_AUTOENCODER=false
+TRAIN_CNN=false
+TRAIN_RESNET=false
+TRAIN_SVM=false
 
-while getopts "at" opt; do
+while getopts "atcrs" opt; do
   case $opt in
     a)
       TRAIN_AUTOENCODER=true
       ;;
     t)
       TUNE_AUTOENCODER=true
+      ;;
+    c)
+      TRAIN_CNN=true
+      ;;
+    r)
+      TRAIN_RESNET=true
+      ;;
+    s)
+      TRAIN_SVM=true
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -42,14 +54,44 @@ if [ "$TRAIN_AUTOENCODER" = true ]; then
     # Train the autoencoder model without hyperparameter tuning
     python /home/mguevaral/jpedro/phenotype-classifier/train_and_evaluate.py --autoencoder
   fi
+
+  # Run the model for SVM for each phenotype
+  PHENOTYPES=(0 1 2 3)
+  PHENOTYPE_NAMES=("Luminal A" "Luminal B" "HER2 Enriched" "Triple Negative")
+
+  for PHENOTYPE in "${PHENOTYPES[@]}"; do
+      PHENOTYPE_NAME=${PHENOTYPE_NAMES[$PHENOTYPE]}
+      printf "\nTraining and evaluating SVM for phenotype $PHENOTYPE ($PHENOTYPE_NAME)\n"
+      python /home/mguevaral/jpedro/phenotype-classifier/train_and_evaluate.py --phenotype $PHENOTYPE --svm
+  done
+elif [ "$TRAIN_SVM" = true ]; then
+  # Run the model for SVM for each phenotype
+  PHENOTYPES=(0 1 2 3)
+  PHENOTYPE_NAMES=("Luminal A" "Luminal B" "HER2 Enriched" "Triple Negative")
+
+  for PHENOTYPE in "${PHENOTYPES[@]}"; do
+      PHENOTYPE_NAME=${PHENOTYPE_NAMES[$PHENOTYPE]}
+      printf "\nTraining and evaluating SVM for phenotype $PHENOTYPE ($PHENOTYPE_NAME)\n"
+      python /home/mguevaral/jpedro/phenotype-classifier/train_and_evaluate.py --phenotype $PHENOTYPE --svm
+  done
+elif [ "$TRAIN_CNN" = true ]; then
+  # Run the model for CNN for each phenotype
+  PHENOTYPES=(0 1 2 3)
+  PHENOTYPE_NAMES=("Luminal A" "Luminal B" "HER2 Enriched" "Triple Negative")
+
+  for PHENOTYPE in "${PHENOTYPES[@]}"; do
+      PHENOTYPE_NAME=${PHENOTYPE_NAMES[$PHENOTYPE]}
+      printf "\nTraining and evaluating CNN for phenotype $PHENOTYPE ($PHENOTYPE_NAME)\n"
+      python /home/mguevaral/jpedro/phenotype-classifier/train_and_evaluate.py --phenotype $PHENOTYPE
+  done
+elif [ "$TRAIN_RESNET" = true ]; then
+  # Run the model for ResNet for each phenotype
+  PHENOTYPES=(0 1 2 3)
+  PHENOTYPE_NAMES=("Luminal A" "Luminal B" "HER2 Enriched" "Triple Negative")
+
+  for PHENOTYPE in "${PHENOTYPES[@]}"; do
+      PHENOTYPE_NAME=${PHENOTYPE_NAMES[$PHENOTYPE]}
+      printf "\nTraining and evaluating ResNet for phenotype $PHENOTYPE ($PHENOTYPE_NAME)\n"
+      python /home/mguevaral/jpedro/phenotype-classifier/train_and_evaluate.py --phenotype $PHENOTYPE --resnet
+  done
 fi
-
-# Run the model for random forest and SVM for each phenotype
-PHENOTYPES=(0 1 2 3)
-PHENOTYPE_NAMES=("Luminal A" "Luminal B" "HER2 Enriched" "Triple Negative")
-
-for PHENOTYPE in "${PHENOTYPES[@]}"; do
-    PHENOTYPE_NAME=${PHENOTYPE_NAMES[$PHENOTYPE]}
-    printf "\nTraining and evaluating SVM for phenotype $PHENOTYPE ($PHENOTYPE_NAME)\n"
-    python /home/mguevaral/jpedro/phenotype-classifier/train_and_evaluate.py --phenotype $PHENOTYPE --svm
-done

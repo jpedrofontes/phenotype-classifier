@@ -12,6 +12,52 @@ phenotypes = {0: "Luminal_A", 1: "Luminal_B", 2: "HER2_Enriched", 3: "Triple_Neg
 
 
 class Dataset_3D:
+    """
+    A class to represent a 3D medical imaging dataset.
+
+    Attributes:
+    -----------
+    base_path : str
+        The base directory path where the dataset is stored.
+    crop_size : tuple
+        The dimensions to which each volume will be resized (depth, width, height).
+    volumes : dict
+        A dictionary to store information about each volume in the dataset.
+    transformations : list
+        A list of transformations to be applied to the volumes.
+    default_transformations : list
+        A list of default transformations (currently commented out).
+
+    Methods:
+    --------
+    __init__(self, base_path, crop_size=(64, 128, 128), transformations=None):
+        Initializes the Dataset_3D object with the given base path, crop size, and transformations.
+
+    read_volume(self, volume_name):
+        Reads and resizes a volume given its name.
+
+    normalize(self, volume):
+        Normalizes the volume to a specified range.
+
+    resize_volume(self, volume, desired_width=128, desired_height=128, desired_depth=64):
+        Resizes the volume to the desired dimensions.
+
+    apply_transformations(self, volume, transformations):
+        Applies a list of transformations to the volume.
+
+    process_scan(self, key, transformations=None):
+        Reads, normalizes, resizes, and applies transformations to a volume.
+
+    rotate_90(self, volume):
+        Rotates the volume by 90 degrees.
+
+    rotate_180(self, volume):
+        Rotates the volume by 180 degrees.
+
+    rotate_270(self, volume):
+        Rotates the volume by 270 degrees.
+    """
+
     def __init__(self, base_path, crop_size=(64, 128, 128), transformations=None):
         self.base_path = base_path
         self.crop_size = crop_size
@@ -68,7 +114,7 @@ class Dataset_3D:
                     "case": case,
                     "slices": [],
                     "phenotype": phenotype,
-                    "transformations": []
+                    "transformations": [],
                 }
 
             self.volumes[volume_name]["slices"].append(os.path.join(base_path, file))
@@ -82,7 +128,7 @@ class Dataset_3D:
                     "case": self.volumes[volume_name]["case"],
                     "slices": self.volumes[volume_name]["slices"],
                     "phenotype": self.volumes[volume_name]["phenotype"],
-                    "transformations": [transform]
+                    "transformations": [transform],
                 }
 
     def read_volume(self, volume_name):
@@ -94,10 +140,10 @@ class Dataset_3D:
             img = Image.open(img_path)
             img = img.resize((self.crop_size[1], self.crop_size[2]))
             img = np.array(img)
-            
+
             # Add to volume
             volume.append(img)
-            
+
         volume = np.array(volume)
 
         return volume
@@ -118,12 +164,12 @@ class Dataset_3D:
         """Resize across z-axis"""
         # Get current depth, width, and height
         current_depth, current_width, current_height = volume.shape
-        
+
         # Compute depth, width, and height factors
         depth_factor = desired_depth / current_depth
         width_factor = desired_width / current_width
         height_factor = desired_height / current_height
-        
+
         # Resize across z-axis
         volume = ndimage.zoom(
             volume, (depth_factor, width_factor, height_factor), order=1
@@ -142,10 +188,10 @@ class Dataset_3D:
         """Read, normalize, resize, and apply transformations to volume"""
         # Read scan
         volume = self.read_volume(key)
-        
+
         # Normalize
         volume = self.normalize(volume)
-        
+
         # Resize width, height, and depth
         volume = self.resize_volume(
             volume,
@@ -153,7 +199,7 @@ class Dataset_3D:
             desired_width=self.crop_size[1],
             desired_height=self.crop_size[2],
         )
-        
+
         # Apply transformations
         volume = self.apply_transformations(volume, transformations)
 
@@ -161,12 +207,12 @@ class Dataset_3D:
 
     def rotate_90(self, volume):
         """Rotate the volume by 90 degrees"""
-        return ndimage.rotate(volume, 90, axes=(1, 2), reshape=False) 
+        return ndimage.rotate(volume, 90, axes=(1, 2), reshape=False)
 
     def rotate_180(self, volume):
         """Rotate the volume by 180 degrees"""
-        return ndimage.rotate(volume, 180, axes=(1, 2), reshape=False) 
+        return ndimage.rotate(volume, 180, axes=(1, 2), reshape=False)
 
     def rotate_270(self, volume):
         """Rotate the volume by 270 degrees"""
-        return ndimage.rotate(volume, 270, axes=(1, 2), reshape=False) 
+        return ndimage.rotate(volume, 270, axes=(1, 2), reshape=False)
