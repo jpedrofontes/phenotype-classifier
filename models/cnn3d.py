@@ -18,7 +18,6 @@ class CNN3D(Model):
     Attributes:
         model (Model): The Keras Model instance representing the 3D CNN.
     """
-
     def __init__(self, depth=64, width=128, height=128):
         super(CNN3D, self).__init__()
         inputs = Input((depth, width, height, 1))

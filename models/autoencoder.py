@@ -18,6 +18,27 @@ from tensorflow.keras.layers import (
 
 
 class ResidualBlock(Layer):
+    """
+    A custom Keras layer that implements a 3D residual block with optional transposed convolutions.
+
+    Args:
+        filters (int): Number of filters for the convolutional layers.
+        kernel_size (int, optional): Size of the convolutional kernel. Defaults to 3.
+        transpose (bool, optional): If True, uses Conv3DTranspose instead of Conv3D. Defaults to False.
+        **kwargs: Additional keyword arguments for the parent Layer class.
+
+    Attributes:
+        filters (int): Number of filters for the convolutional layers.
+        kernel_size (int): Size of the convolutional kernel.
+        transpose (bool): If True, uses Conv3DTranspose instead of Conv3D.
+
+    Methods:
+        call(inputs, **kwargs):
+            Forward pass of the residual block.
+        
+        get_config():
+            Returns the configuration of the layer for serialization.
+    """
     def __init__(self, filters, kernel_size=3, transpose=False, **kwargs):
         super(ResidualBlock, self).__init__(**kwargs)
         self.filters = filters
@@ -54,6 +75,25 @@ class ResidualBlock(Layer):
 
 
 class AttentionBlock(Layer):
+    """
+    AttentionBlock is a custom Keras Layer that applies an attention mechanism to the input tensor.
+    
+    Args:
+        filters (int): The number of filters for the convolutional layer.
+        transpose (bool, optional): If True, uses Conv3DTranspose instead of Conv3D. Defaults to False.
+        **kwargs: Additional keyword arguments for the Layer base class.
+    
+    Attributes:
+        filters (int): The number of filters for the convolutional layer.
+        transpose (bool): Indicates whether to use Conv3DTranspose or Conv3D.
+    
+    Methods:
+        call(inputs, **kwargs):
+            Applies the attention mechanism to the input tensor.
+        
+        get_config():
+            Returns the configuration of the layer for serialization.
+    """
     def __init__(self, filters, transpose=False, **kwargs):
         super(AttentionBlock, self).__init__(**kwargs)
         self.filters = filters
@@ -90,7 +130,7 @@ class AutoEncoder3D(Model):
         encoder (Model): The encoder part of the autoencoder model.
 
     Methods:
-        get_encoder(): Returns the encoder model.
+        get_encoder(): Returns the encoder part of the autoencoder model.
 
     Args:
         depth (int): The depth of the input volume. Default is 64.
@@ -167,7 +207,7 @@ class AutoEncoder3D(Model):
 
     def get_encoder(self) -> Model:
         """
-        Builds and returns the encoder model.
+        Returns the encoder part of the autoencoder model.
 
         Returns:
             Model: The encoder model.

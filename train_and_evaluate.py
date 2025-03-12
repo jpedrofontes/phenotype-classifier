@@ -35,7 +35,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from resnet3d import Resnet3DBuilder
 
-from datasets import CSVDataGenerator, Dataset_3D, DataGenerator
+from datasets import CSVDataGenerator, DataGenerator, Dataset_3D
 from models import AutoEncoder3D, CNN3D
 from settings import base_data_dir, batch_size, dataset_dir, input_size, job_id, num_epochs, phenotypes, random_seed
 
