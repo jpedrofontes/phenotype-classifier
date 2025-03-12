@@ -71,7 +71,7 @@ def load_dataset(input_size, phenotype=None, autoencoder=False):
     """
     Loads the dataset and returns the train and test data generators.
 
-    Args:
+    Parameters:
         input_size (tuple): The dimensions to which the input data should be resized.
         phenotype (str, optional): The specific phenotype to filter the data by. Defaults to None.
         autoencoder (bool, optional): Whether the data is for an autoencoder model. Defaults to False.
@@ -106,7 +106,7 @@ def create_directories(model_name=None):
     """
     Creates directories for saving model checkpoints, logs, and ROC curve images.
 
-    Args:
+    Parameters:
         model_name (str, optional): The name of the model, used for creating specific directories.
 
     Returns:
@@ -128,21 +128,20 @@ def create_directories(model_name=None):
     return checkpoint_dir, log_dir, img_dir
 
 
-def get_callbacks(is_tuner=True, model_name=None, checkpoint_dir=None, log_dir=None):
+def get_callbacks(is_tuner=False, model_name=None, checkpoint_dir=None, log_dir=None):
     """
-    Generates a list of Keras callbacks for training a model.
+    Generates a list of Keras callbacks for model training and evaluation.
 
-    Args:
-        is_tuner (bool): Whether the callbacks are for hyperparameter tuning.
-        model_name (str, optional): The name of the model, used for saving checkpoints and logs.
-        checkpoint_dir (str, optional): Directory to save model checkpoints.
-        log_dir (str, optional): Directory to save TensorBoard logs.
+    Parameters:
+        is_tuner (bool): Flag to indicate if the function is being used for hyperparameter tuning.
+                        If True, only EarlyStopping callback is added. Default is True.
+        model_name (str, optional): Name of the model. If provided, the monitor metric will be "val_auc" and mode will be "max".
+                                    If not provided, the monitor metric will be "val_loss" and mode will be "min".
+        checkpoint_dir (str, optional): Directory where model checkpoints will be saved. Required if is_tuner is False.
+        log_dir (str, optional): Directory where TensorBoard logs will be saved. Required if is_tuner is False.
 
     Returns:
-        list: A list of Keras callbacks including EarlyStopping, ModelCheckpoint, and TensorBoard.
-            - EarlyStopping: Monitors validation loss or AUC and stops training when it stops improving.
-            - ModelCheckpoint: Saves the model weights to a specified filepath when the validation AUC improves.
-            - TensorBoard: Logs training metrics for visualization in TensorBoard.
+        list: A list of Keras callbacks including EarlyStopping, and optionally ModelCheckpoint and TensorBoard.
     """
     if model_name:
         monitor_metric = "val_auc"
@@ -173,6 +172,17 @@ def get_callbacks(is_tuner=True, model_name=None, checkpoint_dir=None, log_dir=N
 
 
 def plot_roc_curve(y_true, y_pred, img_dir):
+    """
+    Plots the Receiver Operating Characteristic (ROC) curve and saves it as an image.
+
+    Parameters:
+        y_true (array-like): True binary labels.
+        y_pred (array-like): Target scores, can either be probability estimates of the positive class, confidence values, or binary decisions.
+        img_dir (str): Directory where the ROC curve image will be saved.
+
+    Returns:
+        None
+    """
     fpr, tpr, _ = roc_curve(y_true, y_pred)
     roc_auc = auc(fpr, tpr)
     plt.figure()
@@ -187,13 +197,36 @@ def plot_roc_curve(y_true, y_pred, img_dir):
     plt.close()
 
 
-def calculate_metrics(y_true, y_pred):
+def calculate_and_print_metrics(y_true, y_pred):
+    """
+    Calculate and print various classification metrics for binary classification.
+    
+    The function also calculates class weights and uses them to compute a weighted AUC.
+    
+    Parameters:
+        y_true (array-like): True binary labels.
+        y_pred (array-like): Predicted probabilities or scores.
+        
+    Prints:
+        Accuracy, Precision, Recall, AUC, F1 Score, and Weighted AUC of the classifier on the test set.
+        Confusion Matrix of the classifier on the test set.
+    """
+    # Calculate base metrics
     print(f"Accuracy: {accuracy_score(y_true, y_pred > 0.5):.4f}", flush=True)
     print(f"Precision: {precision_score(y_true, y_pred > 0.5):.4f}", flush=True)
     print(f"Recall: {recall_score(y_true, y_pred > 0.5):.4f}", flush=True)
     print(f"AUC: {roc_auc_score(y_true, y_pred):.4f}", flush=True)
     print(f"F1 Score: {f1_score(y_true, y_pred > 0.5):.4f}", flush=True)
 
+    # Calculate class weights
+    class_weights = calculate_binary_class_weights(y_true)
+    sample_weights = np.array([class_weights[cls] for cls in y_true])
+    
+    # Calculate weighted AUC
+    weighted_auc = roc_auc_score(y_true, y_pred, sample_weight=sample_weights)
+    print(f"Weighted AUC: {weighted_auc:.4f}", flush=True)
+
+    # Calculate confusion matrix
     conf_matrix = confusion_matrix(y_true, y_pred > 0.5)
     conf_matrix_df = pd.DataFrame(
         conf_matrix, index=np.unique(y_true), columns=np.unique(y_true)
@@ -203,7 +236,7 @@ def calculate_metrics(y_true, y_pred):
     print(conf_matrix_df, flush=True)
 
 
-def calculate_binary_class_weights(y_train):
+def calculate_binary_class_weights(labels):
     """
     Calculate class weights for binary classification.
 
@@ -212,25 +245,25 @@ def calculate_binary_class_weights(y_train):
     inverse frequency of each class in the training data.
 
     Parameters:
-    y_train (array-like): Array of shape (n_samples,) containing the class labels
-                          for the training data. Must contain exactly two unique
-                          classes.
+        labels (array-like): Array of shape (n_samples,) containing the class labels
+                             for the training data. Must contain exactly two unique
+                             classes.
 
     Returns:
-    dict: A dictionary where keys are the class labels and values are the
-          corresponding class weights.
+        dict: A dictionary where keys are the class labels and values are the
+              corresponding class weights.
 
     Raises:
-    AssertionError: If the number of unique classes in y_train is not equal to 2.
+        AssertionError: If the number of unique classes in labels is not equal to 2.
     """
     class_weights = {}
-    total_samples = len(y_train)
-    unique_classes = np.unique(y_train)
+    total_samples = len(labels)
+    unique_classes = np.unique(labels)
 
     assert unique_classes.shape[0] == 2, "Only binary classification is supported"
 
     for cls in unique_classes:
-        n_x = np.sum(y_train == cls)
+        n_x = np.sum(labels == cls)
         class_weights[cls] = (1 / n_x) * (total_samples / 2)
 
     return class_weights
@@ -240,7 +273,7 @@ def build_autoencoder_model(hp: kt.HyperParameters) -> AutoEncoder3D:
     """
     Builds and compiles a 3D autoencoder model based on the given hyperparameters.
 
-    Args:
+    Parameters:
         hp (HyperParameters): Hyperparameters object containing the search space for model tuning.
 
     Returns:
@@ -301,23 +334,23 @@ def train_autoencoder(input_size, batch_size, num_epochs, notrain, tune, checkpo
     Trains an autoencoder model on the given dataset.
 
     Parameters:
-    input_size (tuple): The dimensions of the input data (depth, width, height).
-    batch_size (int): The number of samples per batch.
-    num_epochs (int): The number of epochs to train the model.
-    notrain (bool): If True, the model will not be trained.
-    tune (bool): If True, hyperparameter tuning will be performed using Keras Tuner.
-    checkpoint_dir (str): Directory to save model checkpoints.
-    log_dir (str): Directory to save TensorBoard logs.
+        input_size (tuple): The dimensions of the input data (depth, width, height).
+        batch_size (int): The number of samples per batch.
+        num_epochs (int): The number of epochs to train the model.
+        notrain (bool): If True, the model will not be trained.
+        tune (bool): If True, hyperparameter tuning will be performed using Keras Tuner.
+        checkpoint_dir (str): Directory to save model checkpoints.
+        log_dir (str): Directory to save TensorBoard logs.
 
     Returns:
         None
 
     The function performs the following steps:
-    1. Loads the dataset using the specified input size.
-    2. If tuning is enabled, performs hyperparameter tuning using Keras Tuner's RandomSearch.
-    3. Builds the autoencoder model.
-    4. If notrain is False, trains the model using the training dataset.
-    5. Predicts latent space values for the training dataset and saves them to a CSV file.
+        1. Loads the dataset using the specified input size.
+        2. If tuning is enabled, performs hyperparameter tuning using Keras Tuner's RandomSearch.
+        3. Builds the autoencoder model.
+        4. If notrain is False, trains the model using the training dataset.
+        5. Predicts latent space values for the training dataset and saves them to a CSV file.
     """
     train_generator, test_generator = load_dataset(input_size, autoencoder=True)
 
@@ -397,7 +430,8 @@ def train_autoencoder(input_size, batch_size, num_epochs, notrain, tune, checkpo
 def train_model(input_size, batch_size, num_epochs, phenotype, notrain, model_type, checkpoint_dir, log_dir, img_dir):
     """
     Trains a 3D CNN or ResNet model on the given phenotype dataset.
-    Args:
+    
+    Parameters:
         input_size (tuple): The dimensions of the input data (depth, width, height).
         batch_size (int): The number of samples per batch.
         num_epochs (int): The number of epochs to train the model.
@@ -407,8 +441,13 @@ def train_model(input_size, batch_size, num_epochs, phenotype, notrain, model_ty
         checkpoint_dir (str): Directory to save model checkpoints.
         log_dir (str): Directory to save TensorBoard logs.
         img_dir (str): Directory to save ROC curve images.
+        
     Returns:
         None
+        
+    Prints:
+        Accuracy, Precision, Recall, AUC, F1 Score, and Weighted AUC of the classifier on the test set.
+        Confusion Matrix of the classifier on the test set.
     """
     train_generator, test_generator = load_dataset(input_size, phenotype)
 
@@ -471,7 +510,7 @@ def train_model(input_size, batch_size, num_epochs, phenotype, notrain, model_ty
     y_pred = np.array(y_pred).ravel()
     
     # Calculate metrics and plot ROC curve
-    calculate_metrics(y_true, y_pred)
+    calculate_and_print_metrics(y_true, y_pred)
     plot_roc_curve(y_true, y_pred, img_dir)
 
 
@@ -483,7 +522,7 @@ def train_svm(phenotype, img_dir):
     handles imbalanced data using ADASYN, splits the dataset into training and testing sets,
     performs hyperparameter tuning using Grid Search, and evaluates the best model.
 
-    Args:
+    Parameters:
         phenotype (str): The positive class label for the phenotype to be classified.
 
     Returns:
@@ -491,7 +530,7 @@ def train_svm(phenotype, img_dir):
 
     Prints:
         Best parameters from Grid Search.
-        Accuracy, Precision, Recall, AUC, and F1 Score of the classifier on the test set.
+        Accuracy, Precision, Recall, AUC, F1 Score, and Weighted AUC of the classifier on the test set.
         Confusion Matrix of the classifier on the test set.
     """
     csv_file_path = (
@@ -503,7 +542,6 @@ def train_svm(phenotype, img_dir):
         shuffle=True,
         positive_class=phenotype,
     )
-
     X_all, y_all = [], []
 
     for i in range(len(csv_generator)):
@@ -549,7 +587,7 @@ def train_svm(phenotype, img_dir):
     y_pred = classifier.predict(X_test)
     
     # Calculate metrics and plot ROC curve
-    calculate_metrics(y_test, y_pred)
+    calculate_and_print_metrics(y_test, y_pred)
     plot_roc_curve(y_test, y_pred, img_dir)
 
 
