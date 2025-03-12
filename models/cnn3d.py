@@ -23,7 +23,7 @@ class CNN3D(Model):
         inputs = Input((depth, width, height, 1))
         x = inputs
 
-        for i in [512, 256, 128, 64]:
+        for i in [32, 64, 128, 256]:
             x = Conv3D(filters=i, kernel_size=3, activation="relu")(x)
             x = MaxPool3D(pool_size=2)(x)
             x = BatchNormalization()(x)

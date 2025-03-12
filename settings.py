@@ -1,7 +1,7 @@
 import os
 
 base_data_dir = "/data/mguevaral/jpedro"
-batch_size = 2
+batch_size = 32
 dataset_dir = "/data/mguevaral/crop_bbox/"
 input_size = (64, 128, 128)
 job_id = os.environ.get("SLURM_JOB_ID")
