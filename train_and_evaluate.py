@@ -426,7 +426,7 @@ def train_autoencoder(
     df_latent_values = pd.DataFrame(latent_values)
     df_latent_values["y"] = all_y_values
     df_latent_values.to_csv(
-        "/home/mguevaral/jpedro/phenotype-classifier/datasets/latent_space_values.csv",
+        os.path.join(settings.BASE_DATA_DIR, "latent_space_values.csv"),
         index=False,
     )
     print(
@@ -618,7 +618,6 @@ if __name__ == "__main__":
     parser.add_argument("-svm", "--svm", action="store_true")
     parser.add_argument("-r", "--resnet", action="store_true")
     parser.add_argument("-t", "--tune", action="store_true")
-    parser.add_argument("-csv", "--csv_file_path", type=str, help="path to the CSV file containing latent space values")
     args = parser.parse_args()
 
     setup_gpu()
@@ -636,7 +635,7 @@ if __name__ == "__main__":
         )
     elif args.svm:
         _, _, img_dir = create_directories(f"{settings.PHENOTYPES[args.phenotype]}")
-        train_svm(args.phenotype, args.csv_file_path, img_dir)
+        train_svm(args.phenotype, os.path.join(settings.BASE_DATA_DIR, "latent_space_values.csv"), img_dir)
     elif args.resnet:
         checkpoint_dir, log_dir, img_dir = create_directories(
             f"{settings.PHENOTYPES[args.phenotype]}"
