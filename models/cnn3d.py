@@ -1,13 +1,12 @@
-import tensorflow as tf
 import visualkeras
-from tensorflow.keras import Model, Input
+from tensorflow.keras import Input, Model
 from tensorflow.keras.layers import (
-    Conv3D,
-    MaxPool3D,
     BatchNormalization,
-    GlobalAveragePooling3D,
+    Conv3D,
     Dense,
     Dropout,
+    GlobalAveragePooling3D,
+    MaxPool3D,
 )
 
 
@@ -18,6 +17,7 @@ class CNN3D(Model):
     Attributes:
         model (Model): The Keras Model instance representing the 3D CNN.
     """
+
     def __init__(self, depth=64, width=128, height=128):
         super(CNN3D, self).__init__()
         inputs = Input((depth, width, height, 1))

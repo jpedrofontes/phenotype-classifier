@@ -68,11 +68,12 @@ elif [ "$TRAIN_SVM" = true ]; then
   # Run the model for SVM for each phenotype
   PHENOTYPES=(0 1 2 3)
   PHENOTYPE_NAMES=("Luminal A" "Luminal B" "HER2 Enriched" "Triple Negative")
+  CSV_FILE_PATH="/home/mguevaral/jpedro/phenotype-classifier/datasets/latent_space_values.csv"
 
   for PHENOTYPE in "${PHENOTYPES[@]}"; do
       PHENOTYPE_NAME=${PHENOTYPE_NAMES[$PHENOTYPE]}
       printf "\nTraining and evaluating SVM for phenotype $PHENOTYPE ($PHENOTYPE_NAME)\n"
-      python /home/mguevaral/jpedro/phenotype-classifier/train_and_evaluate.py --phenotype $PHENOTYPE --svm
+      python /home/mguevaral/jpedro/phenotype-classifier/train_and_evaluate.py --phenotype $PHENOTYPE --svm -csv $CSV_FILE_PATH
   done
 elif [ "$TRAIN_CNN" = true ]; then
   # Run the model for CNN for each phenotype
