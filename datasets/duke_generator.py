@@ -3,10 +3,10 @@ import sys
 import tensorflow as tf
 import numpy as np
 
-from datasets.dataset_3d import Dataset_3D
+from datasets.duke_dataset import DukeDataset
 
 
-class DataGenerator(tf.keras.utils.Sequence):
+class DukeDataGenerator(tf.keras.utils.Sequence):
     """
     DataGenerator is a custom data generator class that inherits from tf.keras.utils.Sequence.
     It is used to generate batches of 3D data for training, validation, or testing purposes.
@@ -66,8 +66,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.batch_size = batch_size
         self.path = path
 
-        if dataset is None or not isinstance(dataset, Dataset_3D):
-            self.dataset = Dataset_3D(path, crop_size=dim)
+        if dataset is None or not isinstance(dataset, DukeDataset):
+            self.dataset = DukeDataset(path, crop_size=dim)
         else:
             self.dataset = dataset
 
@@ -173,7 +173,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
 
 if __name__ == "__main__":
-    generator = DataGenerator(sys.argv[1], positive_class=int(sys.argv[2]))
+    generator = DukeDataGenerator(sys.argv[1], positive_class=int(sys.argv[2]))
     print(
         f"\nNumber of batches (batch size {generator.batch_size}): {generator.__len__()}"
     )

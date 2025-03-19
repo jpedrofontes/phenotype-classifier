@@ -35,7 +35,7 @@ from tensorflow.keras.metrics import (
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.optimizers.schedules import ExponentialDecay
 
-from datasets import CSVDataGenerator, DataGenerator, Dataset_3D
+from datasets import CSVDataGenerator, DukeDataGenerator, DukeDataset
 from models import CNN3D, AutoEncoder3D
 from settings import Settings 
 
@@ -81,8 +81,8 @@ def load_dataset(input_size, phenotype=None, autoencoder=False):
     Returns:
         tuple: A tuple containing the train data generator and the test data generator.
     """
-    dataset = Dataset_3D(settings.DATASET_DIR, crop_size=input_size)
-    train_generator = DataGenerator(
+    dataset = DukeDataset(settings.DATASET_DIR, crop_size=input_size)
+    train_generator = DukeDataGenerator(
         settings.DATASET_DIR,
         dataset=dataset,
         stage="train",
@@ -91,7 +91,7 @@ def load_dataset(input_size, phenotype=None, autoencoder=False):
         positive_class=phenotype,
         autoencoder=autoencoder,
     )
-    test_generator = DataGenerator(
+    test_generator = DukeDataGenerator(
         settings.DATASET_DIR,
         dataset=dataset,
         stage="test",
@@ -326,7 +326,7 @@ def build_autoencoder_model(hp: kt.HyperParameters) -> AutoEncoder3D:
         optimizer=Adam(
             learning_rate=ExponentialDecay(
                 learning_rate, decay_steps=10000, decay_rate=0.9, staircase=True
-            )
+            ),
         ),
     )
 

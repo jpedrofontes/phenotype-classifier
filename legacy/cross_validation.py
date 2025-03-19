@@ -7,8 +7,8 @@ from resnet3d import Resnet3DBuilder
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import StratifiedKFold
 
-from datasets.dataset_3d import Dataset_3D
-from datasets.generator_3d import DataGenerator
+from datasets.duke_dataset import DukeDataset
+from datasets.duke_generator import DukeDataGenerator
 from models.cnn3d import CNN3D
 
 phenotypes = {0: "Luminal_A", 1: "Luminal_B",
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     num_epochs = 500
 
     # Create a list of all phenotypes for StratifiedKFold
-    dataset = Dataset_3D("/data/mguevaral/crop_bbox/",
+    dataset = DukeDataset("/data/mguevaral/crop_bbox/",
                          crop_size=input_size)
     phenotypes_list = [dataset.volumes[v]["phenotype"]
                        for v in dataset.volumes]
@@ -46,7 +46,7 @@ if __name__ == "__main__":
         print(f"Training on fold {fold_num}/{args.folds}")
 
         # Create data generators for the current fold
-        train_generator = DataGenerator(
+        train_generator = DukeDataGenerator(
             "/data/mguevaral/crop_bbox/",
             dataset=dataset,
             indices=train_indices,
@@ -54,7 +54,7 @@ if __name__ == "__main__":
             batch_size=batch_size,
             positive_class=args.phenotype,
         )
-        val_generator = DataGenerator(
+        val_generator = DukeDataGenerator(
             "/data/mguevaral/crop_bbox/",
             dataset=dataset,
             indices=val_indices,

@@ -8,7 +8,7 @@ from PIL import Image
 from scipy import ndimage
 
 
-class Dataset_3D:
+class DukeDataset:
     """
     A class to represent a 3D medical imaging dataset.
 
