@@ -70,7 +70,6 @@ class DukeDataset:
 
         # Build dataset info
         os.chdir(base_path)
-        print("Reading dataset...")
 
         for file in glob.glob("*.jpg"):
             # Get the case number of the image

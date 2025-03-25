@@ -97,6 +97,9 @@ class DukeDataGenerator(tf.keras.utils.Sequence):
     def set_transformations(self, transformations):
         self.transformations = transformations
 
+    def set_phenotype(self, phenotype):
+        self.positive_class = phenotype
+
     def __len__(self):
         "Denotes the number of batches per epoch"
         return int(np.floor(len(self.list_IDs) / self.batch_size))
