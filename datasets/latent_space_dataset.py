@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 
 
-class CSVDataGenerator(tf.keras.utils.Sequence):
+class LatentSpaceGenerator(tf.keras.utils.Sequence):
     def __init__(
         self,
         csv_file,

@@ -8,7 +8,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import StratifiedKFold
 
 from datasets.duke_dataset import DukeDataset
-from datasets.duke_generator import DukeDataGenerator
+from datasets.generator import DukeDataGenerator
 from models.cnn3d import CNN3D
 
 phenotypes = {0: "Luminal_A", 1: "Luminal_B",

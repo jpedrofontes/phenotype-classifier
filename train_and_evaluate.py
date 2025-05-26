@@ -35,7 +35,7 @@ from tensorflow.keras.metrics import (
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.optimizers.schedules import ExponentialDecay
 
-from datasets import CSVDataGenerator, DukeDataGenerator, DukeDataset
+from datasets import LatentSpaceDataGenerator, DukeDataGenerator, DukeDataset
 from models import CNN3D, AutoEncoder3D
 from settings import Settings 
 
@@ -553,7 +553,7 @@ def train_svm(phenotype, csv_file_path, img_dir):
         Accuracy, Precision, Recall, AUC, F1 Score, and Weighted AUC of the classifier on the test set.
         Confusion Matrix of the classifier on the test set.
     """
-    csv_generator = CSVDataGenerator(
+    csv_generator = LatentSpaceDataGenerator(
         csv_file_path,
         batch_size=32,
         shuffle=True,

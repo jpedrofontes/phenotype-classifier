@@ -7,8 +7,10 @@ import pandas as pd
 from PIL import Image
 from scipy import ndimage
 
+from dataset import Dataset
 
-class DukeDataset:
+
+class DukeDataset(Dataset):
     """
     A class to represent a 3D medical imaging dataset.
 
@@ -52,9 +54,8 @@ class DukeDataset:
         rotate_270(self, volume):
             Rotates the volume by 270 degrees.
     """
-    def __init__(self, base_path, crop_size=(64, 128, 128), transformations=None):
+    def __init__(self, base_path, transformations=None):
         self.base_path = base_path
-        self.crop_size = crop_size
         self.volumes = dict()
         self.transformations = transformations
 
@@ -125,7 +126,7 @@ class DukeDataset:
                 }
 
     def read_volume(self, volume_name):
-        """Read and resize volume"""
+        """Read a volume"""
         volume = []
 
         for img_path in self.volumes[volume_name]["slices"]:
@@ -140,72 +141,3 @@ class DukeDataset:
         volume = np.array(volume)
 
         return volume
-
-    def normalize(self, volume):
-        """Normalize the volume"""
-        min_val = -1000
-        max_val = 400
-        volume = np.clip(volume, min_val, max_val)
-        volume = (volume - min_val) / (max_val - min_val)
-        volume = volume.astype("float32")
-
-        return volume
-
-    def resize_volume(
-        self, volume, desired_width=128, desired_height=128, desired_depth=64
-    ):
-        """Resize across z-axis"""
-        # Get current depth, width, and height
-        current_depth, current_width, current_height = volume.shape
-
-        # Compute depth, width, and height factors
-        depth_factor = desired_depth / current_depth
-        width_factor = desired_width / current_width
-        height_factor = desired_height / current_height
-
-        # Resize across z-axis
-        volume = ndimage.zoom(
-            volume, (depth_factor, width_factor, height_factor), order=1
-        )
-
-        return volume
-
-    def apply_transformations(self, volume, transformations):
-        """Apply transformations to the volume"""
-        if transformations is not None:
-            for transform in transformations:
-                volume = transform(volume)
-        return volume
-
-    def process_scan(self, key, transformations=None):
-        """Read, normalize, resize, and apply transformations to volume"""
-        # Read scan
-        volume = self.read_volume(key)
-
-        # Normalize
-        volume = self.normalize(volume)
-
-        # Resize width, height, and depth
-        volume = self.resize_volume(
-            volume,
-            desired_depth=self.crop_size[0],
-            desired_width=self.crop_size[1],
-            desired_height=self.crop_size[2],
-        )
-
-        # Apply transformations
-        volume = self.apply_transformations(volume, transformations)
-
-        return volume
-
-    def rotate_90(self, volume):
-        """Rotate the volume by 90 degrees"""
-        return ndimage.rotate(volume, 90, axes=(1, 2), reshape=False)
-
-    def rotate_180(self, volume):
-        """Rotate the volume by 180 degrees"""
-        return ndimage.rotate(volume, 180, axes=(1, 2), reshape=False)
-
-    def rotate_270(self, volume):
-        """Rotate the volume by 270 degrees"""
-        return ndimage.rotate(volume, 270, axes=(1, 2), reshape=False)
