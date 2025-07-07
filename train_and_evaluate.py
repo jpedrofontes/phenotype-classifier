@@ -35,7 +35,7 @@ from tensorflow.keras.metrics import (
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.optimizers.schedules import ExponentialDecay
 
-from datasets import LatentSpaceDataGenerator, DukeDataGenerator, DukeDataset
+from datasets import LatentSpaceGenerator, DataGenerator, DukeDataset, BCCollectionDataset
 from models import CNN3D, AutoEncoder3D
 from settings import Settings 
 
@@ -81,27 +81,40 @@ def load_dataset(input_size, phenotype=None, autoencoder=False):
     Returns:
         tuple: A tuple containing the train data generator and the test data generator.
     """
-    dataset = DukeDataset(settings.DATASET_DIR, crop_size=input_size)
-    train_generator = DukeDataGenerator(
-        settings.DATASET_DIR,
-        dataset=dataset,
-        stage="train",
+    duke_dataset = DukeDataset(settings.DUKE_DATASET_DIR, crop_size=settings.INPUT_SIZE)
+    setubal_dataset = BCCollectionDataset(
+        settings.SETUBAL_DATASET_DIR,
+        settings.SETUBAL_CSV_PATH,
+        crop_size=settings.INPUT_SIZE,
+    )
+    train_generator = DataGenerator(
+        settings.DUKE_DATASET_DIR,
+        dataset=duke_dataset,
         dim=input_size,
+        stage="train",
         batch_size=settings.BATCH_SIZE,
         positive_class=phenotype,
         autoencoder=autoencoder,
     )
-    test_generator = DukeDataGenerator(
-        settings.DATASET_DIR,
-        dataset=dataset,
-        stage="test",
+    val_generator = DataGenerator(
+        settings.DUKE_DATASET_DIR,
+        dataset=duke_dataset,
         dim=input_size,
+        stage="test",
         batch_size=settings.BATCH_SIZE,
         positive_class=phenotype,
         autoencoder=autoencoder,
+    )
+    test_generator = DataGenerator(
+        settings.SETUBAL_DATASET_DIR,
+        dataset=setubal_dataset,
+        dim=settings.INPUT_SIZE,
+        batch_size=settings.BATCH_SIZE,
+        positive_class=None,
+        autoencoder=False,
     )
 
-    return train_generator, test_generator
+    return train_generator, val_generator, test_generator
 
 
 def create_directories(model_name=None):
@@ -467,7 +480,7 @@ def train_model(
         Accuracy, Precision, Recall, AUC, F1 Score, and Weighted AUC of the classifier on the test set.
         Confusion Matrix of the classifier on the test set.
     """
-    train_generator, test_generator = load_dataset(input_size, phenotype)
+    train_generator, val_generator, test_generator = load_dataset(input_size, phenotype)
 
     if model_type == "cnn":
         model = CNN3D(depth=input_size[0], width=input_size[1], height=input_size[2])
@@ -511,13 +524,31 @@ def train_model(
             train_generator,
             batch_size=batch_size,
             epochs=num_epochs,
-            validation_data=test_generator,
+            validation_data=val_generator,
             verbose=2,
             callbacks=callbacks,
             class_weight=class_weight,
         )
 
-    # Build y_true and y_pred arrays for calculating metrics
+    # Build y_true and y_pred arrays for calculating metrics on validation data
+    print("Calculating metrics on validation data...", flush=True)
+    y_true = []
+    y_pred = []
+
+    for i in range(len(val_generator)):
+        X_batch, y_batch = val_generator[i]
+        y_true.extend(y_batch)
+        y_pred.extend(model.predict(X_batch))
+
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred).ravel()
+
+    # Calculate metrics and plot ROC curve
+    calculate_and_print_metrics(y_true, y_pred)
+    plot_roc_curve(y_true, y_pred, img_dir)
+
+    # Build y_true and y_pred arrays for calculating metrics on test data
+    print("Calculating metrics on test data...", flush=True)
     y_true = []
     y_pred = []
 
@@ -553,7 +584,7 @@ def train_svm(phenotype, csv_file_path, img_dir):
         Accuracy, Precision, Recall, AUC, F1 Score, and Weighted AUC of the classifier on the test set.
         Confusion Matrix of the classifier on the test set.
     """
-    csv_generator = LatentSpaceDataGenerator(
+    csv_generator = LatentSpaceGenerator(
         csv_file_path,
         batch_size=32,
         shuffle=True,

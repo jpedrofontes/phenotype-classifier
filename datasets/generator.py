@@ -6,7 +6,7 @@ import numpy as np
 from datasets.duke_dataset import DukeDataset
 
 
-class DukeDataGenerator(tf.keras.utils.Sequence):
+class DataGenerator(tf.keras.utils.Sequence):
     """
     DataGenerator is a custom data generator class that inherits from tf.keras.utils.Sequence.
     It is used to generate batches of 3D data for training, validation, or testing purposes.
@@ -66,7 +66,7 @@ class DukeDataGenerator(tf.keras.utils.Sequence):
         self.batch_size = batch_size
         self.path = path
 
-        if dataset is None or not isinstance(dataset, DukeDataset):
+        if dataset is None:
             self.dataset = DukeDataset(path, crop_size=dim)
         else:
             self.dataset = dataset
@@ -74,15 +74,12 @@ class DukeDataGenerator(tf.keras.utils.Sequence):
         self.positive_class = positive_class
 
         if indices is None:
-            self.volumes = (
-                list(self.dataset.volumes.keys())[
-                    0 : int(0.9 * len(self.dataset.volumes))
-                ]
-                if stage == "train"
-                else list(self.dataset.volumes.keys())[
-                    int(0.9 * len(self.dataset.volumes)) : len(self.dataset.volumes)
-                ]
-            )
+            if stage == "train":
+                self.volumes = list(self.dataset.volumes.keys())[0 : int(0.9 * len(self.dataset.volumes))]
+            elif stage == "test":
+                self.volumes = list(self.dataset.volumes.keys())[int(0.9 * len(self.dataset.volumes)) : len(self.dataset.volumes)]
+            else:
+                self.volumes = list(self.dataset.volumes.keys())
         else:
             all_volumes = list(self.dataset.volumes.keys())
             self.volumes = [all_volumes[i] for i in indices]
@@ -137,7 +134,12 @@ class DukeDataGenerator(tf.keras.utils.Sequence):
             # Store sample
             volume_info = self.dataset.volumes[self.volumes[ID]]
             transformations = volume_info.get("transformations", None)
-            X[i,] = self.dataset.process_scan(self.volumes[ID], transformations)
+            volume = self.dataset.process_scan(self.volumes[ID], transformations)
+            
+            if volume is None:
+                continue
+            
+            X[i,] = volume
             # Store class
             phenotype = self.dataset.volumes[self.volumes[ID]]["phenotype"]
 
@@ -176,7 +178,7 @@ class DukeDataGenerator(tf.keras.utils.Sequence):
 
 
 if __name__ == "__main__":
-    generator = DukeDataGenerator(sys.argv[1], positive_class=int(sys.argv[2]))
+    generator = DataGenerator(sys.argv[1], positive_class=int(sys.argv[2]))
     print(
         f"\nNumber of batches (batch size {generator.batch_size}): {generator.__len__()}"
     )

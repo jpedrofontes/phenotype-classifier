@@ -1,9 +1,10 @@
-import os
-import pandas as pd
-import numpy as np
-from PIL import Image
+from abc import ABC, abstractmethod
 
-class Dataset():
+import numpy as np
+from scipy import ndimage
+
+
+class Dataset(ABC):
     """
     A base class for datasets with shared functionality.
 
@@ -31,11 +32,21 @@ class Dataset():
             Reads, resizes, and normalizes an image.
     """
     
-    def __init__(self, base_path, phenotype_map, crop_size=(128, 128)):
+    def __init__(
+        self, 
+        base_path, 
+        phenotype_map=None, 
+        crop_size=(64, 128, 128)
+    ):
         self.base_path = base_path
         self.phenotype_map = phenotype_map
         self.crop_size = crop_size
         self.annotations = {}
+
+    @abstractmethod
+    def read_volume(self, key):
+        """Read a volume from the dataset"""
+        raise NotImplementedError("This method should be overridden by subclasses.")
 
     def normalize(self, volume):
         """Normalize the volume"""
@@ -52,7 +63,7 @@ class Dataset():
     ):
         """Resize across z-axis"""
         # Get current depth, width, and height
-        current_depth, current_width, current_height = volume.shape
+        current_depth, current_width, current_height = volume.shape 
 
         # Compute depth, width, and height factors
         depth_factor = desired_depth / current_depth
@@ -72,7 +83,7 @@ class Dataset():
             for transform in transformations:
                 volume = transform(volume)
         return volume
-
+    
     def process_scan(self, key, transformations=None):
         """Read, normalize, resize, and apply transformations to volume"""
         # Read scan
@@ -82,26 +93,46 @@ class Dataset():
         volume = self.normalize(volume)
 
         # Resize width, height, and depth
-        volume = self.resize_volume(
-            volume,
-            desired_depth=self.crop_size[0],
-            desired_width=self.crop_size[1],
-            desired_height=self.crop_size[2],
-        )
+        try:
+            volume = self.resize_volume(
+                volume,
+                desired_depth=self.crop_size[0],
+                desired_width=self.crop_size[1],
+                desired_height=self.crop_size[2],
+            )
+        except Exception as e:
+            print(f"Error resizing volume {key}: {e}")
+            return None
 
         # Apply transformations
         volume = self.apply_transformations(volume, transformations)
 
         return volume
 
+    def rotate_45(self, volume):
+        """Rotate each slice of the volume by 45 degrees"""
+        return np.stack([ndimage.rotate(slice, 45, reshape=False) for slice in volume])
+
     def rotate_90(self, volume):
-        """Rotate the volume by 90 degrees"""
-        return ndimage.rotate(volume, 90, axes=(1, 2), reshape=False)
+        """Rotate each slice of the volume by 90 degrees"""
+        return np.stack([ndimage.rotate(slice, 90, reshape=False) for slice in volume])
+
+    def rotate_135(self, volume):
+        """Rotate each slice of the volume by 135 degrees"""
+        return np.stack([ndimage.rotate(slice, 135, reshape=False) for slice in volume])
 
     def rotate_180(self, volume):
-        """Rotate the volume by 180 degrees"""
-        return ndimage.rotate(volume, 180, axes=(1, 2), reshape=False)
+        """Rotate each slice of the volume by 180 degrees"""
+        return np.stack([ndimage.rotate(slice, 180, reshape=False) for slice in volume])
+
+    def rotate_225(self, volume):
+        """Rotate each slice of the volume by 225 degrees"""
+        return np.stack([ndimage.rotate(slice, 225, reshape=False) for slice in volume])
 
     def rotate_270(self, volume):
-        """Rotate the volume by 270 degrees"""
-        return ndimage.rotate(volume, 270, axes=(1, 2), reshape=False)
+        """Rotate each slice of the volume by 270 degrees"""
+        return np.stack([ndimage.rotate(slice, 270, reshape=False) for slice in volume])
+
+    def rotate_315(self, volume):
+        """Rotate each slice of the volume by 315 degrees"""
+        return np.stack([ndimage.rotate(slice, 315, reshape=False) for slice in volume])

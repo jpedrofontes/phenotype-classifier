@@ -1,10 +1,11 @@
 import os
+import re
 
 import cv2
 import numpy as np
 import pandas as pd
 
-from dataset import Dataset
+from .dataset import Dataset
 
 
 class BCCollectionDataset(Dataset):
@@ -14,8 +15,8 @@ class BCCollectionDataset(Dataset):
     Attributes:
         base_path : str
             The base directory path where the dataset is stored.
-        phenotype_map : dict
-            A mapping of class IDs to phenotype names.
+        annotations_csv_path : str
+            The path to the CSV file containing annotations for the dataset.
         crop_size : tuple
             The dimensions to which each image will be resized (width, height).
         annotations : dict
@@ -35,36 +36,67 @@ class BCCollectionDataset(Dataset):
             Reads, resizes, and normalizes an image along with its bounding boxes.
     """
 
-    def __init__(self, base_path, phenotype_map, crop_size=(128, 128)):
+    def __init__(
+        self,
+        base_path,
+        annotations_csv_path,
+        crop_size=(128, 128),
+        transformations=None,
+    ):
         self.base_path = base_path
-        self.phenotype_map = phenotype_map
         self.crop_size = crop_size
-        self.volumes = {}
+        self.volumes = dict()
+        self.trasnformations = transformations or []
+        
+        # Define transformations
+        self.default_transformations = [
+            # self.rotate_90,
+            # self.rotate_180,
+            # self.rotate_270,
+        ]
 
         # Read the CSV file
-        annotations_csv = pd.read_csv(os.path.join(self.base_path, "annotations.csv"))
+        annotations_csv = pd.read_csv(annotations_csv_path)
 
         # Build dataset info
         for _, row in annotations_csv.iterrows():
-            basename = row["basename"] 
-            # match basename with (P-.*-[0-9]{6}-[0-9]{3})-.*\.jpg to get the volume key
-            class_id = row["class_id"]
+            match = re.match(r"(P-.*-.+-.+-.+)-.*\.jpg", row["Basename"])
+            
+            if match:
+                basename = match.group(1)
+            else:
+                continue
+            
+            class_id = row["SubtypeID"]
             slice_bbox = {
-                "xmin": row["xmin"],
-                "ymin": row["ymin"],
-                "xmax": row["xmax"],
-                "ymax": row["ymax"],
-                "path": os.path.join(self.base_path, basename),
+                "xmin": int(row["Xmin"]),
+                "ymin": int(row["Ymin"]),
+                "xmax": int(row["Xmax"]),
+                "ymax": int(row["Ymax"]),
+                "path": os.path.join(self.base_path, row["Basename"]),
             }
 
             if basename not in self.volumes:
                 self.volumes[basename] = {
-                    "case": "-".join(basename.split("-")[:2]),  
+                    "case": basename,
                     "slices": [],
-                    "phenotype": class_id
+                    "phenotype": class_id,
+                    "transformations": [],
                 }
-                
+
             self.volumes[basename]["slices"].append(slice_bbox)
+            self.volumes[basename]["slices"].sort(key=lambda x: x["path"])
+
+        # Add entries for each transformation
+        for volume_name in list(self.volumes.keys()):
+            for transform in self.default_transformations:
+                transformed_volume_name = f"{volume_name}_{transform.__name__}"
+                self.volumes[transformed_volume_name] = {
+                    "case": self.volumes[volume_name]["case"],
+                    "slices": self.volumes[volume_name]["slices"],
+                    "phenotype": self.volumes[volume_name]["phenotype"],
+                    "transformations": [transform],
+                }
 
     def read_volume(self, volume_name):
         if volume_name not in self.volumes:
@@ -76,7 +108,7 @@ class BCCollectionDataset(Dataset):
         for slice_info in volume_slices:
             # Read the image
             image = cv2.imread(slice_info["path"], cv2.IMREAD_UNCHANGED)
-            
+
             if image is None:
                 raise FileNotFoundError(f"Image {slice_info['path']} not found.")
 
@@ -91,7 +123,7 @@ class BCCollectionDataset(Dataset):
 
             # Resize the cropped image to the desired crop size
             resized_image = cv2.resize(
-                cropped_image, self.crop_size, interpolation=cv2.INTER_LINEAR
+                cropped_image, self.crop_size[1:], interpolation=cv2.INTER_LINEAR
             )
 
             # Add to volume

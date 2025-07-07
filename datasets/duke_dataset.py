@@ -5,9 +5,8 @@ import re
 import numpy as np
 import pandas as pd
 from PIL import Image
-from scipy import ndimage
 
-from dataset import Dataset
+from .dataset import Dataset
 
 
 class DukeDataset(Dataset):
@@ -54,16 +53,27 @@ class DukeDataset(Dataset):
         rotate_270(self, volume):
             Rotates the volume by 270 degrees.
     """
-    def __init__(self, base_path, transformations=None):
-        self.base_path = base_path
+
+    def __init__(
+        self, 
+        base_path, 
+        phenotype_map=None, 
+        crop_size=(64, 128, 128), 
+        transformations=None
+    ):
+        super().__init__(base_path, phenotype_map, crop_size)
         self.volumes = dict()
         self.transformations = transformations
 
         # Define transformations
         self.default_transformations = [
-            # self.rotate_90,
-            # self.rotate_180,
-            # self.rotate_270,
+            self.rotate_45,
+            self.rotate_90,
+            self.rotate_135,
+            self.rotate_180,
+            self.rotate_225,
+            self.rotate_270,
+            self.rotate_315,
         ]
 
         # Read class csv file
